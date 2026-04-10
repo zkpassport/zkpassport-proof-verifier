@@ -76,11 +76,8 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       const zkpassport = new ZKPassport("localhost")
       const { verified } = await zkpassport.verify({
         proofs,
-        originalQuery: {
-        },
-        queryResult: {
-        },
-      })
+        queryResult: {},
+      } as any)
 
       if (!verified) {
         return reply.status(400).send({

@@ -6,7 +6,7 @@
     "dev": "ts-node src/server.ts | npx pino-pretty",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "ts-node --test src/**/*.test.ts",
+    "test": "node --require ts-node/register --test src/**/*.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
