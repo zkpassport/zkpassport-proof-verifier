@@ -70,6 +70,19 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   member   = "allUsers"
 }
 
+resource "google_cloud_run_domain_mapping" "verifier" {
+  name     = "verifier.zkpassport.id"
+  location = var.region
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    route_name = google_cloud_run_v2_service.proof_verifier.name
+  }
+}
+
 output "service_url" {
   value = google_cloud_run_v2_service.proof_verifier.uri
 }
