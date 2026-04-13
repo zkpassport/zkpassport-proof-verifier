@@ -55,6 +55,12 @@ resource "google_project_iam_member" "deployer_sa_user" {
   member  = "serviceAccount:${google_service_account.github_actions_deployer.email}"
 }
 
+resource "google_project_iam_member" "deployer_compute_admin" {
+  project = var.project_id
+  role    = "roles/compute.admin"
+  member  = "serviceAccount:${google_service_account.github_actions_deployer.email}"
+}
+
 resource "google_storage_bucket_iam_member" "deployer_tf_state" {
   bucket = "proof-verifier-tf-state"
   role   = "roles/storage.objectAdmin"
