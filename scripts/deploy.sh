@@ -15,6 +15,7 @@ REPO_NAME="proof-verifier"
 SERVICE_NAME="proof-verifier"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF_DIR="${REPO_ROOT}/terraform"
+TF_DEPLOY_DIR="${REPO_ROOT}/terraform/deploy"
 
 init() {
   echo "==> Creating Terraform state bucket..."
@@ -28,11 +29,17 @@ init() {
     gcloud storage buckets update "gs://${TF_STATE_BUCKET}" --versioning
   fi
 
-  echo "==> Running Terraform init..."
+  echo "==> Running Terraform init (bootstrap)..."
   terraform -chdir="${TF_DIR}" init
 
-  echo "==> Running Terraform apply with placeholder image..."
-  terraform -chdir="${TF_DIR}" apply \
+  echo "==> Running Terraform apply (bootstrap)..."
+  terraform -chdir="${TF_DIR}" apply
+
+  echo "==> Running Terraform init (deploy)..."
+  terraform -chdir="${TF_DEPLOY_DIR}" init
+
+  echo "==> Running Terraform apply (deploy) with placeholder image..."
+  terraform -chdir="${TF_DEPLOY_DIR}" apply \
     -var="image=us-docker.pkg.dev/cloudrun/container/hello:latest"
 
   echo ""
@@ -65,14 +72,14 @@ deploy() {
   docker push "${image}"
 
   echo "==> Running Terraform init..."
-  terraform -chdir="${TF_DIR}" init
+  terraform -chdir="${TF_DEPLOY_DIR}" init
 
   echo "==> Running Terraform apply..."
-  terraform -chdir="${TF_DIR}" apply -var="image=${image}"
+  terraform -chdir="${TF_DEPLOY_DIR}" apply -var="image=${image}"
 
   echo ""
   echo "==> Deployed! Service URL:"
-  terraform -chdir="${TF_DIR}" output -raw service_url
+  terraform -chdir="${TF_DEPLOY_DIR}" output -raw service_url
   echo ""
 }
 

@@ -1,3 +1,23 @@
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+variable "project_id" {
+  type    = string
+  default = "proof-verifier"
+}
+
+variable "region" {
+  type    = string
+  default = "europe-west2"
+}
+
+variable "image" {
+  description = "Full Docker image URI including tag"
+  type        = string
+}
+
 resource "google_cloud_run_v2_service" "proof_verifier" {
   name     = "proof-verifier"
   location = var.region
@@ -41,8 +61,6 @@ resource "google_cloud_run_v2_service" "proof_verifier" {
       }
     }
   }
-
-  depends_on = [google_project_service.run]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public" {
@@ -50,4 +68,8 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   location = google_cloud_run_v2_service.proof_verifier.location
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+output "service_url" {
+  value = google_cloud_run_v2_service.proof_verifier.uri
 }

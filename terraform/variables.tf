@@ -10,7 +10,3 @@ variable "region" {
   default     = "europe-west2"
 }
 
-variable "image" {
-  description = "Full Docker image URI including tag"
-  type        = string
-}

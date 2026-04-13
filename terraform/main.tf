@@ -32,3 +32,12 @@ resource "google_project_service" "cloudresourcemanager" {
   service            = "cloudresourcemanager.googleapis.com"
   disable_on_destroy = false
 }
+
+resource "google_storage_bucket" "tf_state" {
+  name     = "proof-verifier-tf-state"
+  location = var.region
+
+  versioning {
+    enabled = true
+  }
+}

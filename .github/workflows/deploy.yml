@@ -46,15 +46,15 @@ jobs:
           terraform_version: "1.9"
 
       - name: Terraform Init
-        working-directory: terraform
+        working-directory: terraform/deploy
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: terraform
+        working-directory: terraform/deploy
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${GITHUB_SHA}"
           terraform apply -auto-approve -var="image=${IMAGE}"
 
       - name: Show Service URL
-        working-directory: terraform
+        working-directory: terraform/deploy
         run: terraform output -raw service_url
