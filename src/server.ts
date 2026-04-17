@@ -1,7 +1,17 @@
+(globalThis as any).MOCK_REGISTRY_URL = `http://localhost:${process.env.PORT || "8080"}/circuits`
+
+import path from "path"
 import Fastify from "fastify"
+import fastifyStatic from "@fastify/static"
 import { verifyOprfRoute } from "./routes/verify-oprf"
 
 const app = Fastify({ logger: true })
+
+app.register(fastifyStatic, {
+  root: path.join(__dirname, "..", "circuits"),
+  prefix: "/circuits",
+  decorateReply: false,
+})
 
 app.get("/health", async () => {
   return { status: "ok" }
