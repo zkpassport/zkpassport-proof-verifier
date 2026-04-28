@@ -1,5 +1,3 @@
-(globalThis as any).MOCK_REGISTRY_URL = `http://localhost:${process.env.PORT || "8080"}/circuits`
-
 import path from "path"
 import Fastify from "fastify"
 import fastifyStatic from "@fastify/static"

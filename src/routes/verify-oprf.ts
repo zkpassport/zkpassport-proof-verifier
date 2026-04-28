@@ -1,3 +1,5 @@
+(globalThis as any).MOCK_REGISTRY_URL = `http://127.0.0.1:${process.env.PORT || "8080"}/circuits`
+
 import type { FastifyInstance } from "fastify"
 import type { ProofResult } from "@zkpassport/utils"
 import { getProofData } from "@zkpassport/utils"
