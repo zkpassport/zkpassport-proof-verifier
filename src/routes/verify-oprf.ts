@@ -20,7 +20,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
   fastify.post<{
     Body: VerifyOprfRequest
     Reply: VerifyOprfResponse
-  }>("/oprf/verify", async (request, reply) => {
+  }>("/verify-oprf-auth", async (request, reply) => {
     const { blinded_unique_identifier, proofs } = request.body
 
     const isDevMode = request.query && (request.query as any).devmode === "true"
