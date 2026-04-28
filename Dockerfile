@@ -1,22 +1,14 @@
-FROM node:22-slim AS builder
-
-WORKDIR /app
-
-COPY package.json package-lock.json* ./
-RUN npm install
-
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
-
 FROM node:22-slim
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+COPY zkpassport-sdk-*.tgz zkpassport-utils-*.tgz zkpassport-registry-*.tgz ./
+RUN npm install
 
-COPY --from=builder /app/dist ./dist
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
 EXPOSE 8080
 
