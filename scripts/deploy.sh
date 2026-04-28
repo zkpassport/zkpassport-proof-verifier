@@ -66,12 +66,7 @@ deploy() {
   gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
   echo "==> Building image: ${image}"
-  DOCKER_BUILDKIT=1 docker build \
-    --build-context zkp="${REPO_ROOT}/../zkpassport-packages" \
-    -t "${image}" "${REPO_ROOT}"
-  # NOTE: --build-context zkp is a temporary hack so the Dockerfile can
-  # pull in a locally-built ../zkpassport-packages. Remove once the
-  # packages are published and package.json references fixed versions.
+  docker build -t "${image}" "${REPO_ROOT}"
 
   echo "==> Pushing image..."
   docker push "${image}"
