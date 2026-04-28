@@ -3,7 +3,7 @@ FROM node:22-slim
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-COPY zkpassport-sdk-*.tgz zkpassport-utils-*.tgz zkpassport-registry-*.tgz ./
+COPY zkpassport-sdk-*.tgz zkpassport-utils-*.tgz ./
 RUN npm install
 
 COPY tsconfig.json ./
