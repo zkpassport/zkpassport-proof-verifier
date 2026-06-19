@@ -25,11 +25,20 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
     Body: VerifyOprfRequest
     Reply: VerifyOprfResponse
   }>("/verify-oprf-auth", async (request, reply) => {
+    const startedAt = Date.now()
+    const log = request.log.child({ route: "verify-oprf-auth" })
+
     const { blinded_unique_identifier, proofs } = request.body
 
     const isDevMode = request.query && (request.query as any).devmode === "true"
 
+    log.info(
+      { event: "received", proofCount: Array.isArray(proofs) ? proofs.length : null, devMode: isDevMode },
+      "verify-oprf-auth request received",
+    )
+
     if (!blinded_unique_identifier || !proofs || !Array.isArray(proofs)) {
+      log.warn({ event: "bad_request", reason: "missing_fields" }, "Missing required fields")
       return reply.status(400).send({
         verified: false,
         error: "Missing required fields: blinded_unique_identifier, proofs",
@@ -37,6 +46,10 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
     }
 
     if (proofs.length !== 5) {
+      log.warn(
+        { event: "bad_request", reason: "proof_count", proofCount: proofs.length },
+        "Unexpected number of subproofs",
+      )
       return reply.status(400).send({
         verified: false,
         error: `Expected 5 subproofs (3 base + facematch + oprf_auth), got ${proofs.length}`,
@@ -51,6 +64,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       )
 
       if (!facematchProof?.proof) {
+        log.warn({ event: "missing_proof", proof: "facematch" }, "Missing required facematch proof")
         return reply.status(400).send({
           verified: false,
           error: "Missing required facematch proof",
@@ -58,6 +72,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       }
 
       if (!oprfAuthProof?.proof) {
+        log.warn({ event: "missing_proof", proof: "oprf_auth" }, "Missing required oprf_auth proof")
         return reply.status(400).send({
           verified: false,
           error: "Missing required oprf_auth proof",
@@ -72,6 +87,10 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       const expectedBlindedId = `0x${blindedX}${blindedY}`
 
       if (blinded_unique_identifier.toLowerCase() !== expectedBlindedId.toLowerCase()) {
+        log.warn(
+          { event: "mismatch", check: "blinded_unique_identifier" },
+          "blinded_unique_identifier does not match oprf_auth proof output",
+        )
         return reply.status(400).send({
           verified: false,
           error: "blinded_unique_identifier does not match oprf_auth proof output",
@@ -85,6 +104,10 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       const oprfAuthCommIn = BigInt(oprfAuthData.publicInputs[0])
 
       if (facematchCommIn !== oprfAuthCommIn) {
+        log.warn(
+          { event: "mismatch", check: "comm_in" },
+          "oprf_auth comm_in does not match facematch comm_in",
+        )
         return reply.status(400).send({
           verified: false,
           error: "oprf_auth comm_in does not match facematch comm_in",
@@ -92,6 +115,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       }
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
+      log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
       const zkpassport = new ZKPassport("localhost")
       const { verified } = await zkpassport.verify({
         proofs,
@@ -102,16 +126,24 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       } as any)
 
       if (!verified) {
+        log.warn(
+          { event: "verification_failed", durationMs: Date.now() - startedAt },
+          "SDK reported proof verification failed",
+        )
         return reply.status(400).send({
           verified: false,
           error: "Proof verification failed",
         })
       }
 
+      log.info(
+        { event: "verified", durationMs: Date.now() - startedAt },
+        "verify-oprf-auth succeeded",
+      )
       return reply.send({ verified: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
-      fastify.log.error(err, "Proof verification failed")
+      log.error({ err, event: "error", durationMs: Date.now() - startedAt }, "Proof verification threw")
       return reply.status(400).send({
         verified: false,
         error: message,
