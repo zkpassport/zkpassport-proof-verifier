@@ -1,8 +1,10 @@
-(globalThis as any).MOCK_REGISTRY_URL = `http://127.0.0.1:${process.env.PORT || "8080"}/circuits`
-
 import type { FastifyInstance } from "fastify"
 import type { ProofResult } from "@zkpassport/utils"
-import { getProofData } from "@zkpassport/utils"
+import {
+  getProofData,
+  getNumberOfPublicInputs,
+  getCommitmentInFromDisclosureProof,
+} from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
 
 interface VerifyOprfRequest {
@@ -75,14 +77,27 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
           error: "blinded_unique_identifier does not match oprf_auth proof output",
         })
       }
+      const facematchData = getProofData(
+        facematchProof.proof,
+        getNumberOfPublicInputs(facematchProof.name!),
+      )
+      const facematchCommIn = getCommitmentInFromDisclosureProof(facematchData)
+      const oprfAuthCommIn = BigInt(oprfAuthData.publicInputs[0])
+
+      if (facematchCommIn !== oprfAuthCommIn) {
+        return reply.status(400).send({
+          verified: false,
+          error: "oprf_auth comm_in does not match facematch comm_in",
+        })
+      }
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
       const zkpassport = new ZKPassport("localhost")
       const { verified } = await zkpassport.verify({
         proofs,
-        originalQuery: { facematch: { mode: "strict" } },
         // Ignore facematch validation in dev mode
-        queryResult: isDevMode ? {} : { facematch: { mode: "strict", passed: true } },
+        originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
+        queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         devMode: isDevMode,
       } as any)
 

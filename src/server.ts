@@ -2,8 +2,9 @@ import path from "path"
 import Fastify from "fastify"
 import fastifyStatic from "@fastify/static"
 import { verifyOprfRoute } from "./routes/verify-oprf"
+import { loggerOptions } from "./logger"
 
-const app = Fastify({ logger: true })
+const app = Fastify({ logger: loggerOptions })
 
 app.register(fastifyStatic, {
   root: path.join(__dirname, "..", "circuits"),
