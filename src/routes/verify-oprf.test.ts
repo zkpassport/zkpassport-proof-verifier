@@ -169,14 +169,11 @@ describe("POST /oprf/verify", () => {
     assert.notEqual(tamperedCommIn, facematchCommIn)
   })
 
-  // --- Full verification ---
-  // Note: This test requires bb.js version to match the circuit compiler version.
-  // Skip with { skip: true } if bb.js is not yet updated.
 
-  it("should return verified: true with valid proofs and matching blinded identifier", { skip: "Requires bb.js v4 to match circuit compiler version" }, async () => {
+  it("should return verified: true with valid proofs and matching blinded identifier", async () => {
     const res = await app.inject({
       method: "POST",
-      url: "/verify-oprf-auth",
+      url: "/verify-oprf-auth?devmode=true",
       payload: {
         blinded_unique_identifier: fixture.blinded_unique_identifier,
         proofs: fixture.proofs,
