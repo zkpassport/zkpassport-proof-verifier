@@ -117,7 +117,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
       const zkpassport = new ZKPassport("localhost")
-      const { verified } = await zkpassport.verify({
+      const { verified, queryResultErrors } = await zkpassport.verify({
         proofs,
         // Ignore facematch validation in dev mode
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
@@ -127,12 +127,12 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
       if (!verified) {
         log.warn(
-          { event: "verification_failed", durationMs: Date.now() - startedAt },
+          { event: "verification_failed", durationMs: Date.now() - startedAt, queryResultErrors },
           "SDK reported proof verification failed",
         )
         return reply.status(400).send({
           verified: false,
-          error: "Proof verification failed",
+          error: `Proof verification failed: ${JSON.stringify(queryResultErrors ?? {})}`,
         })
       }
 
