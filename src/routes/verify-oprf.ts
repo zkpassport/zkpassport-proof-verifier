@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify"
+import type { FastifyInstance, RouteHandler } from "fastify"
 import type { ProofResult } from "@zkpassport/utils"
 import {
   getProofData,
@@ -21,10 +21,10 @@ interface VerifyOprfResponse {
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
 export async function verifyOprfRoute(fastify: FastifyInstance) {
-  fastify.post<{
-    Body: VerifyOprfRequest
-    Reply: VerifyOprfResponse
-  }>("/verify-oprf-auth", async (request, reply) => {
+  const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
+    request,
+    reply,
+  ) => {
     const startedAt = Date.now()
     const log = request.log.child({ route: "verify-oprf-auth" })
 
@@ -149,5 +149,8 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         error: message,
       })
     }
-  })
+  }
+
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/verify-oprf-auth", handler)
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/oprf/verify", handler)
 }
