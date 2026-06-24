@@ -116,7 +116,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
-      const zkpassport = new ZKPassport()
+      const zkpassport = new ZKPassport(" ")
       const { verified, queryResultErrors } = await zkpassport.verify({
         proofs,
         // Ignore facematch validation in dev mode
