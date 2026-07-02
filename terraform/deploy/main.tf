@@ -24,7 +24,7 @@ resource "google_cloud_run_v2_service" "proof_verifier" {
 
   template {
     scaling {
-      min_instance_count = 3
+      min_instance_count = 1
       max_instance_count = 10
     }
 
@@ -40,6 +40,7 @@ resource "google_cloud_run_v2_service" "proof_verifier" {
           memory = "512Mi"
           cpu    = "1"
         }
+        cpu_idle = true
       }
 
       startup_probe {
