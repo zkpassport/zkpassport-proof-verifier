@@ -30,8 +30,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
     const { blinded_unique_identifier, proofs } = request.body
 
-    // const isDevMode = request.query && (request.query as any).devmode === "true"
-    const isDevMode = false;
+    const isDevMode = request.query && (request.query as any).devmode === "true"
 
     log.info(
       { event: "received", proofCount: Array.isArray(proofs) ? proofs.length : null, devMode: isDevMode },
