@@ -1,5 +1,6 @@
 import Fastify from "fastify"
 import { verifyOprfRoute } from "./routes/verify-oprf"
+import { verifyRoute } from "./routes/verify"
 
 export function buildApp() {
   const fastify = Fastify({
@@ -11,6 +12,7 @@ export function buildApp() {
   })
 
   fastify.register(verifyOprfRoute)
+  fastify.register(verifyRoute)
 
   return fastify
 }

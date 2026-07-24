@@ -2,6 +2,7 @@ import path from "path"
 import Fastify from "fastify"
 import fastifyStatic from "@fastify/static"
 import { verifyOprfRoute } from "./routes/verify-oprf"
+import { verifyRoute } from "./routes/verify"
 import { loggerOptions } from "./logger"
 
 const app = Fastify({ logger: loggerOptions })
@@ -21,6 +22,7 @@ app.get("/", async () => {
 })
 
 app.register(verifyOprfRoute)
+app.register(verifyRoute)
 
 const port = parseInt(process.env.PORT || "8080", 10)
 const host = process.env.HOST || "0.0.0.0"
