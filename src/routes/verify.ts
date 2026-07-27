@@ -17,7 +17,7 @@ export async function verifyRoute(fastify: FastifyInstance) {
         event: "received",
         proofCount: Array.isArray(body.proofs) ? body.proofs.length : null,
         version: Array.isArray(body.proofs) ? body.proofs[0]?.version : undefined,
-        devMode: body.devMode === true,
+        devMode: body.serviceConfig?.devMode === true,
       },
       "verify request received",
     )
@@ -32,6 +32,17 @@ export async function verifyRoute(fastify: FastifyInstance) {
     }
     if (!body.queryResult || typeof body.queryResult !== "object") {
       return reply.status(400).send({ verified: false, error: "Missing required field: queryResult" })
+    }
+    if (body.serviceConfig !== undefined && (typeof body.serviceConfig !== "object" || body.serviceConfig === null)) {
+      return reply.status(400).send({ verified: false, error: "Invalid field: serviceConfig (must be an object)" })
+    }
+    // oprf_auth bundles need the blinded-query binding check, which requires the
+    // blinded_unique_identifier this endpoint doesn't take — fail closed
+    if (body.proofs.some((p) => p?.name?.startsWith("oprf_auth") || p?.name?.startsWith("oprf-auth"))) {
+      return reply.status(400).send({
+        verified: false,
+        error: "OPRF auth proof bundles must be verified via POST /verify-oprf-auth, which checks the blinded query point binding",
+      })
     }
 
     try {
