@@ -1,5 +1,6 @@
 import type { FastifyInstance, RouteHandler } from "fastify"
 import { verifyProofs, type VerifyParams, type VerifyResult } from "../verification"
+import { checkOprfAuthBinding, hasOprfAuthProof } from "../oprf-auth"
 
 type VerifyResponse = VerifyResult & { error?: string }
 
@@ -39,15 +40,25 @@ export async function verifyRoute(fastify: FastifyInstance) {
     if (body.options !== undefined && (typeof body.options !== "object" || body.options === null)) {
       return reply.status(400).send({ verified: false, error: "Invalid field: options (must be an object)" })
     }
-    // oprf_auth bundles need the blinded-query binding check, which requires the
-    // blinded_unique_identifier this endpoint doesn't take — fail closed
-    if (body.proofs.some((p) => p?.name?.startsWith("oprf_auth") || p?.name?.startsWith("oprf-auth"))) {
-      return reply.status(400).send({
-        verified: false,
-        error: "OPRF auth proof bundles must be verified via POST /verify-oprf-auth, which checks the blinded query point binding",
-      })
+    // An oprf_auth proof only means something together with the OPRF request it was made for
+    if (hasOprfAuthProof(body.proofs)) {
+      const blindedUniqueIdentifier = body.blinded_unique_identifier
+      if (typeof blindedUniqueIdentifier !== "string" || blindedUniqueIdentifier.length === 0) {
+        return reply.status(400).send({
+          verified: false,
+          error:
+            "OPRF auth proof bundles require blinded_unique_identifier, which binds the proof to the OPRF query it authorizes",
+        })
+      }
+      const bindingFailure = checkOprfAuthBinding(body.proofs, blindedUniqueIdentifier)
+      if (bindingFailure) {
+        log.warn(bindingFailure.logFields, bindingFailure.error)
+        return reply.status(400).send({ verified: false, error: bindingFailure.error })
+      }
     }
 
+    // Known SDK gap: it uses the committedInputs field from the request to decide what was
+    // proven, so a query can pass without a proof behind it. Does not affect the OPRF route.
     try {
       const result = await verifyProofs(body)
 

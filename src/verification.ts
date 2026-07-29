@@ -1,6 +1,8 @@
 import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
 
+// Mirrors the ServiceConfig struct of the Solidity verifier
+// (registry-contracts Types.sol / the SDK's SolidityServiceConfig)
 export interface ServiceConfig {
   validityPeriodInSeconds?: number
   domain?: string
@@ -19,6 +21,8 @@ export interface VerifyParams {
   serviceConfig?: ServiceConfig
   options?: VerifyOptions
   oprfKeyId?: string
+  // Only needed for bundles with an oprf_auth proof. Checked by the route, not sent to the SDK
+  blinded_unique_identifier?: string
 }
 
 export interface VerifyResult {
