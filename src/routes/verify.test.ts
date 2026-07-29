@@ -68,7 +68,6 @@ describe("POST /verify", () => {
     }
   })
 
-
   it("should return 400 when proof verification throws", async () => {
     const res = await app.inject({
       method: "POST",
@@ -150,8 +149,6 @@ describe("POST /verify", () => {
     assert.equal(res.json().verified, false)
   })
 
-  // --- OPRF auth bundles ---
-
   it("should return 400 for an oprf_auth bundle without blinded_unique_identifier", async () => {
     const res = await app.inject({
       method: "POST",
@@ -205,8 +202,6 @@ describe("POST /verify", () => {
     assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
     assert.equal(res.statusCode, 200)
   })
-
-
 })
 
 // Real mainnet proofs from mobile app runs, one per proof mode, at circuit version 0.20.0.
@@ -217,8 +212,7 @@ const loadModeFixture = (name: string) =>
 const EXPECTED_UNIQUE_IDENTIFIER =
   "9993331391667981369032344615261176787245866814375674411672468922215950818795"
 
-// This one asked for a salted identifier, so it is the only fixture that makes the SDK check
-// the OPRF key. It also used strict facematch and included a bind proof.
+// The only fixture with a salted identifier (so the SDK checks the OPRF key) and a bind proof
 const SALTED_UNIQUE_IDENTIFIER =
   "11967442281966260380238871272653119004869513454295625115950587293921126852242"
 

@@ -46,8 +46,7 @@ export function checkOprfAuthBinding(
     }
   }
 
-  // Verify blinded_unique_identifier matches oprf_auth public output
-  // oprf_auth outputs (x, y) on BabyJubJub as public outputs (indices 1 and 2)
+  // oprf_auth outputs the blinded query point (x, y) on BabyJubJub as public inputs 1 and 2
   const oprfAuthData = getProofData(oprfAuthProof.proof, OPRF_AUTH_PUBLIC_INPUT_COUNT)
   const blindedX = BigInt(oprfAuthData.publicInputs[1]).toString(16).padStart(64, "0")
   const blindedY = BigInt(oprfAuthData.publicInputs[2]).toString(16).padStart(64, "0")

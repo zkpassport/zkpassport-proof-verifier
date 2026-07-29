@@ -36,7 +36,7 @@ export interface VerifyResult {
 // (e.g. OPRF auth) verify against this placeholder
 const PLACEHOLDER_DOMAIN = " "
 
-// Use large number instead of "Infinity" to make this work with Solidy verifier
+// Large number instead of Infinity so it also works with the Solidity verifier
 const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
