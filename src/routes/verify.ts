@@ -40,14 +40,14 @@ export async function verifyRoute(fastify: FastifyInstance) {
     if (body.options !== undefined && (typeof body.options !== "object" || body.options === null)) {
       return reply.status(400).send({ verified: false, error: "Invalid field: options (must be an object)" })
     }
-    // An oprf_auth proof only means something together with the OPRF request it was made for
-    if (hasOprfAuthProof(body.proofs)) {
+    // An oprf_auth proof only means something together with the OPRF request it was made for.
+    // Only the OPRF flow has that request, so the binding is checked only when it's supplied.
+    if (hasOprfAuthProof(body.proofs) && body.blinded_unique_identifier !== undefined) {
       const blindedUniqueIdentifier = body.blinded_unique_identifier
       if (typeof blindedUniqueIdentifier !== "string" || blindedUniqueIdentifier.length === 0) {
         return reply.status(400).send({
           verified: false,
-          error:
-            "OPRF auth proof bundles require blinded_unique_identifier, which binds the proof to the OPRF query it authorizes",
+          error: "Invalid field: blinded_unique_identifier (must be a non-empty string)",
         })
       }
       const bindingFailure = checkOprfAuthBinding(body.proofs, blindedUniqueIdentifier)

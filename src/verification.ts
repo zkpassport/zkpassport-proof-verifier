@@ -21,7 +21,7 @@ export interface VerifyParams {
   serviceConfig?: ServiceConfig
   options?: VerifyOptions
   oprfKeyId?: string
-  // Only needed for bundles with an oprf_auth proof. Checked by the route, not sent to the SDK
+  // Optional: when supplied, the route checks the oprf_auth proof was made for this OPRF query
   blinded_unique_identifier?: string
 }
 

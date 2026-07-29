@@ -149,7 +149,7 @@ describe("POST /verify", () => {
     assert.equal(res.json().verified, false)
   })
 
-  it("should return 400 for an oprf_auth bundle without blinded_unique_identifier", async () => {
+  it("should verify an oprf_auth bundle without blinded_unique_identifier (binding not checked)", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
@@ -162,8 +162,27 @@ describe("POST /verify", () => {
       },
     })
 
+    const body = res.json()
+    assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
+    assert.equal(res.statusCode, 200)
+  })
+
+  it("should return 400 for an empty blinded_unique_identifier", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify",
+      payload: {
+        blinded_unique_identifier: "",
+        proofs: fixture.proofs,
+        originalQuery: facematchQuery,
+        queryResult: facematchQuery,
+        serviceConfig: { devMode: true },
+        options: { ignoreValidity: true },
+      },
+    })
+
     assert.equal(res.statusCode, 400)
-    assert.match(res.json().error, /require blinded_unique_identifier/)
+    assert.match(res.json().error, /Invalid field: blinded_unique_identifier/)
   })
 
   it("should return 400 for an oprf_auth bundle with a mismatched blinded identifier", async () => {
