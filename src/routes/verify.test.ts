@@ -47,6 +47,12 @@ describe("POST /verify", () => {
         queryResult: facematchQuery,
         serviceConfig: "not-an-object",
       },
+      {
+        proofs,
+        originalQuery: facematchQuery,
+        queryResult: facematchQuery,
+        options: "not-an-object",
+      },
     ]
     for (const payload of payloads) {
       const res = await app.inject({ method: "POST", url: "/verify", payload })
@@ -95,6 +101,40 @@ describe("POST /verify", () => {
         originalQuery: facematchQuery,
         queryResult: facematchQuery,
         serviceConfig: { validityPeriodInSeconds: TEN_YEARS_IN_SECONDS, devMode: true },
+      },
+    })
+
+    const body = res.json()
+    assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
+    assert.equal(res.statusCode, 200)
+  })
+
+  it("should return verified: false for an aged proof without ignoreValidity", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify",
+      payload: {
+        proofs,
+        originalQuery: facematchQuery,
+        queryResult: facematchQuery,
+        serviceConfig: { devMode: true },
+      },
+    })
+
+    assert.equal(res.statusCode, 400)
+    assert.equal(res.json().verified, false)
+  })
+
+  it("should return verified: true for the same aged proof with options.ignoreValidity", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify",
+      payload: {
+        proofs,
+        originalQuery: facematchQuery,
+        queryResult: facematchQuery,
+        serviceConfig: { devMode: true },
+        options: { ignoreValidity: true },
       },
     })
 

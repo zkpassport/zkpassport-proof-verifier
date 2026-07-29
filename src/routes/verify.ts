@@ -36,6 +36,9 @@ export async function verifyRoute(fastify: FastifyInstance) {
     if (body.serviceConfig !== undefined && (typeof body.serviceConfig !== "object" || body.serviceConfig === null)) {
       return reply.status(400).send({ verified: false, error: "Invalid field: serviceConfig (must be an object)" })
     }
+    if (body.options !== undefined && (typeof body.options !== "object" || body.options === null)) {
+      return reply.status(400).send({ verified: false, error: "Invalid field: options (must be an object)" })
+    }
     // oprf_auth bundles need the blinded-query binding check, which requires the
     // blinded_unique_identifier this endpoint doesn't take — fail closed
     if (body.proofs.some((p) => p?.name?.startsWith("oprf_auth") || p?.name?.startsWith("oprf-auth"))) {
