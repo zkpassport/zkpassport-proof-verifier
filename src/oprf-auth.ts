@@ -46,7 +46,8 @@ export function checkOprfAuthBinding(
     }
   }
 
-  // oprf_auth outputs the blinded query point (x, y) on BabyJubJub as public inputs 1 and 2
+  // Public inputs 1 and 2 are the x and y coordinates of the blinded query point — the
+  // blinded identifier is that elliptic-curve point, hex-encoded as x followed by y
   const oprfAuthData = getProofData(oprfAuthProof.proof, OPRF_AUTH_PUBLIC_INPUT_COUNT)
   const blindedX = BigInt(oprfAuthData.publicInputs[1]).toString(16).padStart(64, "0")
   const blindedY = BigInt(oprfAuthData.publicInputs[2]).toString(16).padStart(64, "0")
