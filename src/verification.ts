@@ -1,5 +1,5 @@
 import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { ZKPassport } from "@zkpassport/sdk"
+import { isCircuitVersionSupported, ZKPassport } from "@zkpassport/sdk"
 
 // Mirrors the ServiceConfig struct of the Solidity verifier
 // (registry-contracts Types.sol / the SDK's SolidityServiceConfig)
@@ -40,6 +40,12 @@ const PLACEHOLDER_DOMAIN = " "
 const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
+  const circuitVersion = params.proofs[0]?.version
+  if (!isCircuitVersionSupported(circuitVersion)) {
+    throw new Error(
+      `Circuit version ${circuitVersion ?? "unknown"} is not yet supported by the verifier service`,
+    )
+  }
   const serviceConfig = params.serviceConfig ?? {}
   const zkpassport = new ZKPassport(serviceConfig.domain || PLACEHOLDER_DOMAIN)
   const validity = params.options?.ignoreValidity
