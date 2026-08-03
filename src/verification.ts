@@ -21,8 +21,6 @@ export interface VerifyParams {
   serviceConfig?: ServiceConfig
   options?: VerifyOptions
   oprfKeyId?: string
-  // Optional: when supplied, the route checks the oprf_auth proof was made for this OPRF query
-  blinded_unique_identifier?: string
 }
 
 export interface VerifyResult {
@@ -30,7 +28,12 @@ export interface VerifyResult {
   uniqueIdentifier?: string
   uniqueIdentifierType?: NullifierType
   queryResultErrors?: unknown
+  // Only set when options.ignoreValidity was used, so callers know the age was not checked
+  ignoredValidity?: boolean
 }
+
+// Thrown when this service's SDK is too old to verify the proofs
+export class UnsupportedCircuitVersionError extends Error {}
 
 // The SDK requires a non-empty domain in Node; domain-unbound proofs
 // (e.g. OPRF auth) verify against this placeholder
@@ -40,18 +43,21 @@ const PLACEHOLDER_DOMAIN = " "
 const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
+  // The SDK sends proofs it can't verify to this endpoint, so without this check
+  // it would send them back to this same service, over and over.
   const circuitVersion = params.proofs[0]?.version
   if (!isCircuitVersionSupported(circuitVersion)) {
-    throw new Error(
+    throw new UnsupportedCircuitVersionError(
       `Circuit version ${circuitVersion ?? "unknown"} is not yet supported by the verifier service`,
     )
   }
   const serviceConfig = params.serviceConfig ?? {}
   const zkpassport = new ZKPassport(serviceConfig.domain || PLACEHOLDER_DOMAIN)
-  const validity = params.options?.ignoreValidity
+  const ignoredValidity = params.options?.ignoreValidity === true
+  const validity = ignoredValidity
     ? IGNORE_VALIDITY_SECONDS
     : serviceConfig.validityPeriodInSeconds
-  return zkpassport.verify({
+  const result = await zkpassport.verify({
     proofs: params.proofs,
     originalQuery: params.originalQuery,
     queryResult: params.queryResult,
@@ -60,4 +66,5 @@ export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> 
     devMode: serviceConfig.devMode === true,
     oprfKeyId: params.oprfKeyId,
   })
+  return ignoredValidity ? { ...result, ignoredValidity } : result
 }

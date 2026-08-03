@@ -1,7 +1,11 @@
 import type { FastifyInstance, RouteHandler } from "fastify"
 import type { ProofResult } from "@zkpassport/utils"
+import {
+  getProofData,
+  getNumberOfPublicInputs,
+  getCommitmentInFromDisclosureProof,
+} from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
-import { checkOprfAuthBinding } from "../oprf-auth"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -12,6 +16,9 @@ interface VerifyOprfResponse {
   verified: boolean
   error?: string
 }
+
+// oprf_auth circuit has 3 public inputs: comm_in (1 input) + (x, y) blinded query point (2 outputs)
+const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
 export async function verifyOprfRoute(fastify: FastifyInstance) {
   const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
@@ -50,10 +57,61 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
     }
 
     try {
-      const bindingFailure = checkOprfAuthBinding(proofs, blinded_unique_identifier)
-      if (bindingFailure) {
-        log.warn(bindingFailure.logFields, bindingFailure.error)
-        return reply.status(400).send({ verified: false, error: bindingFailure.error })
+      // Verify proofs include a facematch and an oprf_auth proof
+      const facematchProof = proofs.find((p) => p.name?.startsWith("facematch"))
+      const oprfAuthProof = proofs.find(
+        (p) => p.name?.startsWith("oprf_auth") || p.name?.startsWith("oprf-auth"),
+      )
+
+      if (!facematchProof?.proof) {
+        log.warn({ event: "missing_proof", proof: "facematch" }, "Missing required facematch proof")
+        return reply.status(400).send({
+          verified: false,
+          error: "Missing required facematch proof",
+        })
+      }
+
+      if (!oprfAuthProof?.proof) {
+        log.warn({ event: "missing_proof", proof: "oprf_auth" }, "Missing required oprf_auth proof")
+        return reply.status(400).send({
+          verified: false,
+          error: "Missing required oprf_auth proof",
+        })
+      }
+
+      // Verify blinded_unique_identifier matches oprf_auth public output
+      // oprf_auth outputs (x, y) on BabyJubJub as public outputs (indices 1 and 2)
+      const oprfAuthData = getProofData(oprfAuthProof.proof, OPRF_AUTH_PUBLIC_INPUT_COUNT)
+      const blindedX = BigInt(oprfAuthData.publicInputs[1]).toString(16).padStart(64, "0")
+      const blindedY = BigInt(oprfAuthData.publicInputs[2]).toString(16).padStart(64, "0")
+      const expectedBlindedId = `0x${blindedX}${blindedY}`
+
+      if (blinded_unique_identifier.toLowerCase() !== expectedBlindedId.toLowerCase()) {
+        log.warn(
+          { event: "mismatch", check: "blinded_unique_identifier" },
+          "blinded_unique_identifier does not match oprf_auth proof output",
+        )
+        return reply.status(400).send({
+          verified: false,
+          error: "blinded_unique_identifier does not match oprf_auth proof output",
+        })
+      }
+      const facematchData = getProofData(
+        facematchProof.proof,
+        getNumberOfPublicInputs(facematchProof.name!),
+      )
+      const facematchCommIn = getCommitmentInFromDisclosureProof(facematchData)
+      const oprfAuthCommIn = BigInt(oprfAuthData.publicInputs[0])
+
+      if (facematchCommIn !== oprfAuthCommIn) {
+        log.warn(
+          { event: "mismatch", check: "comm_in" },
+          "oprf_auth comm_in does not match facematch comm_in",
+        )
+        return reply.status(400).send({
+          verified: false,
+          error: "oprf_auth comm_in does not match facematch comm_in",
+        })
       }
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).

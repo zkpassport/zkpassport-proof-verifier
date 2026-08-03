@@ -20,7 +20,7 @@ const fixture = JSON.parse(
 // Query the fixture proofs were generated for
 const facematchQuery = { facematch: { mode: "regular", passed: true } }
 
-// oprf_auth proofs need a blinded identifier too, so those cases are grouped further down
+// /verify rejects oprf_auth proofs, so drop that one from the bundle
 const proofs = fixture.proofs.filter((p: { name?: string }) => !p.name?.startsWith("oprf_auth"))
 
 // The fixture ages past the SDK's default 7-day validity window
@@ -82,6 +82,22 @@ describe("POST /verify", () => {
     assert.equal(res.json().verified, false)
   })
 
+  // Not a 400: the request is fine, this service's SDK is just too old to verify it
+  it("should return 501 for a circuit version the SDK cannot verify", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify",
+      payload: {
+        proofs: [{ proof: "0x" + "aa".repeat(64), name: "outer_evm_5", version: "9.9.9" }],
+        originalQuery: facematchQuery,
+        queryResult: facematchQuery,
+      },
+    })
+    assert.equal(res.statusCode, 501)
+    assert.equal(res.json().verified, false)
+    assert.match(res.json().error, /not yet supported/)
+  })
+
   it("should return verified: true for valid proofs with a matching query", async () => {
     const res = await app.inject({
       method: "POST",
@@ -97,6 +113,8 @@ describe("POST /verify", () => {
     const body = res.json()
     assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
     assert.equal(res.statusCode, 200)
+    // Absent, not false, when the validity window was applied normally
+    assert.equal(body.ignoredValidity, undefined)
   })
 
   it("should return verified: false for an aged proof without ignoreValidity", async () => {
@@ -131,6 +149,8 @@ describe("POST /verify", () => {
     const body = res.json()
     assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
     assert.equal(res.statusCode, 200)
+    // Tells the caller the age of the proofs was not checked
+    assert.equal(body.ignoredValidity, true)
   })
 
   it("should return verified: false when the query does not match the proofs", async () => {
@@ -149,30 +169,11 @@ describe("POST /verify", () => {
     assert.equal(res.json().verified, false)
   })
 
-  it("should verify an oprf_auth bundle without blinded_unique_identifier (binding not checked)", async () => {
+  it("should return 400 for a bundle containing an oprf_auth proof", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
       payload: {
-        proofs: fixture.proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: { devMode: true },
-        options: { ignoreValidity: true },
-      },
-    })
-
-    const body = res.json()
-    assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
-    assert.equal(res.statusCode, 200)
-  })
-
-  it("should return 400 for an empty blinded_unique_identifier", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/verify",
-      payload: {
-        blinded_unique_identifier: "",
         proofs: fixture.proofs,
         originalQuery: facematchQuery,
         queryResult: facematchQuery,
@@ -182,44 +183,8 @@ describe("POST /verify", () => {
     })
 
     assert.equal(res.statusCode, 400)
-    assert.match(res.json().error, /Invalid field: blinded_unique_identifier/)
-  })
-
-  it("should return 400 for an oprf_auth bundle with a mismatched blinded identifier", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/verify",
-      payload: {
-        blinded_unique_identifier: "0x" + "00".repeat(64),
-        proofs: fixture.proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: { devMode: true },
-        options: { ignoreValidity: true },
-      },
-    })
-
-    assert.equal(res.statusCode, 400)
-    assert.match(res.json().error, /blinded_unique_identifier does not match/)
-  })
-
-  it("should verify an oprf_auth bundle given the matching blinded identifier", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/verify",
-      payload: {
-        blinded_unique_identifier: fixture.blinded_unique_identifier,
-        proofs: fixture.proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: { devMode: true },
-        options: { ignoreValidity: true },
-      },
-    })
-
-    const body = res.json()
-    assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
-    assert.equal(res.statusCode, 200)
+    assert.equal(res.json().verified, false)
+    assert.match(res.json().error, /use POST \/verify-oprf-auth/)
   })
 })
 

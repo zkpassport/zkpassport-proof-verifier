@@ -1,8 +1,15 @@
 import type { FastifyInstance, RouteHandler } from "fastify"
-import { verifyProofs, type VerifyParams, type VerifyResult } from "../verification"
-import { checkOprfAuthBinding, hasOprfAuthProof } from "../oprf-auth"
+import {
+  UnsupportedCircuitVersionError,
+  verifyProofs,
+  type VerifyParams,
+  type VerifyResult,
+} from "../verification"
 
 type VerifyResponse = VerifyResult & { error?: string }
+
+const isOprfAuthProof = (name?: string) =>
+  !!name && (name.startsWith("oprf_auth") || name.startsWith("oprf-auth"))
 
 export async function verifyRoute(fastify: FastifyInstance) {
   const handler: RouteHandler<{ Body: VerifyParams; Reply: VerifyResponse }> = async (
@@ -34,27 +41,21 @@ export async function verifyRoute(fastify: FastifyInstance) {
     if (!body.queryResult || typeof body.queryResult !== "object") {
       return reply.status(400).send({ verified: false, error: "Missing required field: queryResult" })
     }
+    // null is rejected, not treated as missing: the defaults skip the domain check
     if (body.serviceConfig !== undefined && (typeof body.serviceConfig !== "object" || body.serviceConfig === null)) {
       return reply.status(400).send({ verified: false, error: "Invalid field: serviceConfig (must be an object)" })
     }
     if (body.options !== undefined && (typeof body.options !== "object" || body.options === null)) {
       return reply.status(400).send({ verified: false, error: "Invalid field: options (must be an object)" })
     }
-    // An oprf_auth proof only means something together with the OPRF request it was made for.
-    // Only the OPRF flow has that request, so the binding is checked only when it's supplied.
-    if (hasOprfAuthProof(body.proofs) && body.blinded_unique_identifier !== undefined) {
-      const blindedUniqueIdentifier = body.blinded_unique_identifier
-      if (typeof blindedUniqueIdentifier !== "string" || blindedUniqueIdentifier.length === 0) {
-        return reply.status(400).send({
-          verified: false,
-          error: "Invalid field: blinded_unique_identifier (must be a non-empty string)",
-        })
-      }
-      const bindingFailure = checkOprfAuthBinding(body.proofs, blindedUniqueIdentifier)
-      if (bindingFailure) {
-        log.warn(bindingFailure.logFields, bindingFailure.error)
-        return reply.status(400).send({ verified: false, error: bindingFailure.error })
-      }
+    // Nothing here checks an oprf_auth proof, so accepting one would call it verified
+    // when it never was. /verify-oprf-auth is the route that checks them.
+    if (body.proofs.some((proof) => isOprfAuthProof(proof?.name))) {
+      log.warn({ event: "rejected", reason: "oprf_auth_proof" }, "oprf_auth proof sent to /verify")
+      return reply.status(400).send({
+        verified: false,
+        error: "oprf_auth proofs are not verified here, use POST /verify-oprf-auth instead",
+      })
     }
 
     // Known SDK gap: it uses the committedInputs field from the request to decide what was
@@ -81,11 +82,13 @@ export async function verifyRoute(fastify: FastifyInstance) {
       return reply.send(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
+      // 501, not 400: the request was fine, this service just can't verify these proofs yet
+      const status = err instanceof UnsupportedCircuitVersionError ? 501 : 400
       log.error(
-        { err, event: "error", durationMs: Date.now() - startedAt },
+        { err, event: "error", status, durationMs: Date.now() - startedAt },
         "Proof verification threw",
       )
-      return reply.status(400).send({ verified: false, error: message })
+      return reply.status(status).send({ verified: false, error: message })
     }
   }
 
