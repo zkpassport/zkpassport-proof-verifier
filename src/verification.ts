@@ -1,5 +1,5 @@
 import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { isCircuitVersionSupported, ZKPassport } from "@zkpassport/sdk"
+import { canVerifyLocally, ZKPassport } from "@zkpassport/sdk"
 
 // Mirrors the ServiceConfig struct of the Solidity verifier
 // (registry-contracts Types.sol / the SDK's SolidityServiceConfig)
@@ -33,7 +33,7 @@ export interface VerifyResult {
 }
 
 // Thrown when this service's SDK is too old to verify the proofs
-export class UnsupportedCircuitVersionError extends Error {}
+export class UnsupportedProofError extends Error {}
 
 // The SDK requires a non-empty domain in Node; domain-unbound proofs
 // (e.g. OPRF auth) verify against this placeholder
@@ -45,10 +45,10 @@ const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
   // The SDK sends proofs it can't verify to this endpoint, so without this check
   // it would send them back to this same service, over and over.
-  const circuitVersion = params.proofs[0]?.version
-  if (!isCircuitVersionSupported(circuitVersion)) {
-    throw new UnsupportedCircuitVersionError(
-      `Circuit version ${circuitVersion ?? "unknown"} is not yet supported by the verifier service`,
+  const proof = params.proofs[0]
+  if (!canVerifyLocally(proof ?? {})) {
+    throw new UnsupportedProofError(
+      `Proofs generated with bb ${proof?.bbVersion} are not yet supported by the verifier service`,
     )
   }
   const serviceConfig = params.serviceConfig ?? {}

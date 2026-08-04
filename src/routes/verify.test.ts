@@ -83,12 +83,14 @@ describe("POST /verify", () => {
   })
 
   // Not a 400: the request is fine, this service's SDK is just too old to verify it
-  it("should return 501 for a circuit version the SDK cannot verify", async () => {
+  it("should return 501 for a bb version the SDK cannot verify", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
       payload: {
-        proofs: [{ proof: "0x" + "aa".repeat(64), name: "outer_evm_5", version: "9.9.9" }],
+        proofs: [
+          { proof: "0x" + "aa".repeat(64), name: "outer_evm_5", version: "9.9.9", bbVersion: "9.9.9" },
+        ],
         originalQuery: facematchQuery,
         queryResult: facematchQuery,
       },

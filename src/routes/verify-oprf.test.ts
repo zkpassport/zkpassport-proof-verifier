@@ -72,6 +72,28 @@ describe("POST /oprf/verify", () => {
     assert.match(body.error, /Expected 5 subproofs/)
   })
 
+  it("should return 501 for a bb version the SDK cannot verify", async () => {
+    const mockProof = {
+      proof: "0x" + "aa".repeat(32),
+      name: "test_circuit",
+      version: "9.9.9",
+      bbVersion: "9.9.9",
+    }
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify-oprf-auth",
+      payload: {
+        blinded_unique_identifier: "0x" + "cc".repeat(32),
+        proofs: Array(5).fill(mockProof),
+      },
+    })
+
+    assert.equal(res.statusCode, 501)
+    assert.equal(res.json().verified, false)
+    assert.match(res.json().error, /not yet supported/)
+  })
+
   it("should return 400 when required proof types are missing", async () => {
     const mockProof = {
       proof: "0x" + "aa".repeat(32),
