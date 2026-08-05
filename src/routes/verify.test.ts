@@ -42,6 +42,19 @@ describe("POST /verify", () => {
     await app.close()
   })
 
+  it("should answer a browser preflight so the endpoint is callable cross-origin", async () => {
+    const res = await app.inject({
+      method: "OPTIONS",
+      url: "/verify",
+      headers: {
+        origin: "https://customer.example.com",
+        "access-control-request-method": "POST",
+      },
+    })
+    assert.equal(res.statusCode, 204)
+    assert.equal(res.headers["access-control-allow-origin"], "*")
+  })
+
   it("should return 400 when required fields are missing", async () => {
     const payloads = [
       {},
