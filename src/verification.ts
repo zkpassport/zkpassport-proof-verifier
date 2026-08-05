@@ -72,10 +72,8 @@ export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> 
   return ignoredValidity ? { ...result, ignoredValidity } : result
 }
 
-// A failed verification of proofs from a bb version this service's SDK doesn't
-// bundle is reported as "not yet supported" (501) rather than "invalid". Only
-// consulted after an attempt: the version alone can't tell whether verification
-// would fail — a proof from a newer bb may still verify.
+// After a failed attempt, proofs from a bb version this service's SDK doesn't support
+// report as "not yet supported" (501) rather than "invalid"
 function throwIfUnsupported(proofs: ProofResult[]) {
   const proof = proofs[0]
   if (!canVerifyLocally(proof ?? {})) {
