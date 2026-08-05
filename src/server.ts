@@ -1,28 +1,7 @@
-import path from "path"
-import Fastify from "fastify"
-import fastifyStatic from "@fastify/static"
-import { verifyOprfRoute } from "./routes/verify-oprf"
-import { verifyRoute } from "./routes/verify"
+import { buildApp } from "./app"
 import { loggerOptions } from "./logger"
 
-const app = Fastify({ logger: loggerOptions })
-
-app.register(fastifyStatic, {
-  root: path.join(__dirname, "..", "circuits"),
-  prefix: "/circuits",
-  decorateReply: false,
-})
-
-app.get("/health", async () => {
-  return { status: "ok" }
-})
-
-app.get("/", async () => {
-  return { status: "ok" }
-})
-
-app.register(verifyOprfRoute)
-app.register(verifyRoute)
+const app = buildApp({ logger: loggerOptions })
 
 const port = parseInt(process.env.PORT || "8080", 10)
 const host = process.env.HOST || "0.0.0.0"

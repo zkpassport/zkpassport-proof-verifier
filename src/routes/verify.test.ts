@@ -55,6 +55,11 @@ describe("POST /verify", () => {
     assert.equal(res.headers["access-control-allow-origin"], "*")
   })
 
+  it("should rate limit requests", async () => {
+    const res = await app.inject({ method: "POST", url: "/verify", payload: {} })
+    assert.equal(res.headers["x-ratelimit-limit"], "60")
+  })
+
   it("should return 400 when required fields are missing", async () => {
     const payloads = [
       {},
