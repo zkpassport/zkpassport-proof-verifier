@@ -5,7 +5,7 @@ import {
   getNumberOfPublicInputs,
   getCommitmentInFromDisclosureProof,
 } from "@zkpassport/utils"
-import { canVerifyLocally, ZKPassport } from "@zkpassport/sdk"
+import { ZKPassport } from "@zkpassport/sdk"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -53,15 +53,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       return reply.status(400).send({
         verified: false,
         error: `Expected 5 subproofs (3 base + facematch + oprf_auth), got ${proofs.length}`,
-      })
-    }
-
-    // Without this check the SDK below would forward the proofs to /verify,
-    // which rejects oprf_auth proofs, and the request would fail confusingly.
-    if (!canVerifyLocally(proofs[0] ?? {})) {
-      return reply.status(501).send({
-        verified: false,
-        error: `Proofs generated with bb ${proofs[0]?.bbVersion} are not yet supported by the verifier service`,
       })
     }
 
@@ -132,6 +123,8 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         devMode: isDevMode,
+        // This service is the SDK's verifier API, so it must never defer to it
+        mode: "local",
       } as any)
 
       if (!verified) {

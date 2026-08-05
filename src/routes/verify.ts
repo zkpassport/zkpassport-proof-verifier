@@ -1,10 +1,5 @@
 import type { FastifyInstance, RouteHandler } from "fastify"
-import {
-  UnsupportedProofError,
-  verifyProofs,
-  type VerifyParams,
-  type VerifyResult,
-} from "../verification"
+import { verifyProofs, type VerifyParams, type VerifyResult } from "../verification"
 
 type VerifyResponse = VerifyResult & { error?: string }
 
@@ -82,13 +77,11 @@ export async function verifyRoute(fastify: FastifyInstance) {
       return reply.send(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
-      // 501, not 400: the request was fine, this service just can't verify these proofs yet
-      const status = err instanceof UnsupportedProofError ? 501 : 400
       log.error(
-        { err, event: "error", status, durationMs: Date.now() - startedAt },
+        { err, event: "error", durationMs: Date.now() - startedAt },
         "Proof verification threw",
       )
-      return reply.status(status).send({ verified: false, error: message })
+      return reply.status(400).send({ verified: false, error: message })
     }
   }
 
