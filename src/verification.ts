@@ -43,31 +43,44 @@ const PLACEHOLDER_DOMAIN = " "
 const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
-  // Best-effort pre-check to report proofs this service's SDK is too old for
-  // with a clear 501 (mode: "local" below is what keeps the SDK from sending
-  // them back to this same service).
-  const proof = params.proofs[0]
-  if (!canVerifyLocally(proof ?? {})) {
-    throw new UnsupportedProofError(
-      `Proofs generated with bb ${proof?.bbVersion} are not yet supported by the verifier service`,
-    )
-  }
   const serviceConfig = params.serviceConfig ?? {}
   const zkpassport = new ZKPassport(serviceConfig.domain || PLACEHOLDER_DOMAIN)
   const ignoredValidity = params.options?.ignoreValidity === true
   const validity = ignoredValidity
     ? IGNORE_VALIDITY_SECONDS
     : serviceConfig.validityPeriodInSeconds
-  const result = await zkpassport.verify({
-    proofs: params.proofs,
-    originalQuery: params.originalQuery,
-    queryResult: params.queryResult,
-    scope: serviceConfig.scope,
-    validity,
-    devMode: serviceConfig.devMode === true,
-    oprfKeyId: params.oprfKeyId,
-    // This service is the SDK's verifier API, so it must never defer to it
-    mode: "local",
-  })
+  let result: VerifyResult
+  try {
+    result = await zkpassport.verify({
+      proofs: params.proofs,
+      originalQuery: params.originalQuery,
+      queryResult: params.queryResult,
+      scope: serviceConfig.scope,
+      validity,
+      devMode: serviceConfig.devMode === true,
+      oprfKeyId: params.oprfKeyId,
+      // This service is the SDK's verifier API, so it must never defer to it
+      mode: "local",
+    })
+  } catch (err) {
+    throwIfUnsupported(params.proofs)
+    throw err
+  }
+  if (!result.verified) {
+    throwIfUnsupported(params.proofs)
+  }
   return ignoredValidity ? { ...result, ignoredValidity } : result
+}
+
+// A failed verification of proofs from a bb version this service's SDK doesn't
+// bundle is reported as "not yet supported" (501) rather than "invalid". Only
+// consulted after an attempt: the version alone can't tell whether verification
+// would fail — a proof from a newer bb may still verify.
+function throwIfUnsupported(proofs: ProofResult[]) {
+  const proof = proofs[0]
+  if (!canVerifyLocally(proof ?? {})) {
+    throw new UnsupportedProofError(
+      `Proofs generated with bb ${proof?.bbVersion} are not yet supported by the verifier service`,
+    )
+  }
 }
