@@ -43,8 +43,9 @@ const PLACEHOLDER_DOMAIN = " "
 const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> {
-  // The SDK sends proofs it can't verify to this endpoint, so without this check
-  // it would send them back to this same service, over and over.
+  // Best-effort pre-check to report proofs this service's SDK is too old for
+  // with a clear 501 (mode: "local" below is what keeps the SDK from sending
+  // them back to this same service).
   const proof = params.proofs[0]
   if (!canVerifyLocally(proof ?? {})) {
     throw new UnsupportedProofError(
@@ -65,6 +66,8 @@ export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> 
     validity,
     devMode: serviceConfig.devMode === true,
     oprfKeyId: params.oprfKeyId,
+    // This service is the SDK's verifier API, so it must never defer to it
+    mode: "local",
   })
   return ignoredValidity ? { ...result, ignoredValidity } : result
 }
