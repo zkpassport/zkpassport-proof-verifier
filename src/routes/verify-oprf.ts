@@ -123,7 +123,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         devMode: isDevMode,
-        mode: "local",
+        verifierMode: "local",
       } as any)
 
       if (!verified) {

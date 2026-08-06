@@ -54,7 +54,7 @@ export async function verifyProofs(params: VerifyParams): Promise<VerifyResult> 
     validity,
     devMode: serviceConfig.devMode === true,
     oprfKeyId: params.oprfKeyId,
-    mode: "local",
+    verifierMode: "local",
   })
   return ignoredValidity ? { ...result, ignoredValidity } : result
 }
