@@ -1,7 +1,5 @@
-import path from "path"
 import Fastify, { type FastifyServerOptions } from "fastify"
 import cors from "@fastify/cors"
-import fastifyStatic from "@fastify/static"
 import { verifyOprfRoute } from "./routes/verify-oprf"
 import { verifyRoute } from "./routes/verify"
 
@@ -12,12 +10,6 @@ export function buildApp(opts: { logger?: FastifyServerOptions["logger"] } = {})
 
   // Browsers call this API from customer domains, so any origin is allowed
   fastify.register(cors)
-
-  fastify.register(fastifyStatic, {
-    root: path.join(__dirname, "..", "circuits"),
-    prefix: "/circuits",
-    decorateReply: false,
-  })
 
   fastify.get("/health", async () => {
     return { status: "ok" }
