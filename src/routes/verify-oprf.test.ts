@@ -172,8 +172,8 @@ describe("POST /oprf/verify", () => {
 
 
   it("should return verified: true with valid proofs and matching blinded identifier", async () => {
-    // This route has no validity option on purpose, so the only way to accept an old fixture
-    // is to set the clock to when the proofs were made
+    // Run the clock at the moment the proofs were made, so the certificate root is looked up
+    // as it was then rather than now
     const facematch = fixture.proofs.find((p: { name?: string }) => p.name?.startsWith("facematch"))
     const proofData = getProofData(facematch.proof, getNumberOfPublicInputs(facematch.name))
     mock.timers.enable({ apis: ["Date"], now: getCurrentDateFromDisclosureProof(proofData) })

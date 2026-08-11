@@ -6,6 +6,7 @@ import {
   getCommitmentInFromDisclosureProof,
 } from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
+import { IGNORE_VALIDITY_SECONDS } from "../validity"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -123,6 +124,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         devMode: isDevMode,
+        validity: isDevMode ? IGNORE_VALIDITY_SECONDS : undefined,
         verifierMode: "local",
       } as any)
 

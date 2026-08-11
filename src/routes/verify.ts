@@ -2,6 +2,7 @@ import type { FastifyInstance, RouteHandler } from "fastify"
 import { z } from "zod"
 import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { ZKPassport, type VerificationResult } from "@zkpassport/sdk"
+import { IGNORE_VALIDITY_SECONDS } from "../validity"
 
 const isObject = (value: unknown) => typeof value === "object" && value !== null
 
@@ -40,9 +41,6 @@ type VerifyResponse = Partial<VerificationResult> & {
 // The SDK requires a non-empty domain in Node; domain-unbound proofs
 // (e.g. OPRF auth) verify against this placeholder
 const PLACEHOLDER_DOMAIN = " "
-
-// Large number instead of Infinity so it also works with the Solidity verifier
-const IGNORE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
 
 const isOprfAuthProof = (name?: string) =>
   !!name && (name.startsWith("oprf_auth") || name.startsWith("oprf-auth"))
