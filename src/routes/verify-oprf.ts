@@ -20,6 +20,8 @@ interface VerifyOprfResponse {
 // oprf_auth circuit has 3 public inputs: comm_in (1 input) + (x, y) blinded query point (2 outputs)
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
+const DEV_MODE_VALIDITY_SECONDS = 100 * 365 * 24 * 60 * 60
+
 export async function verifyOprfRoute(fastify: FastifyInstance) {
   const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
     request,
@@ -122,6 +124,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         // Ignore facematch validation in dev mode
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
+        validity: isDevMode ? DEV_MODE_VALIDITY_SECONDS : undefined,
         devMode: isDevMode,
       } as any)
 
