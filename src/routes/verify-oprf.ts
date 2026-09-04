@@ -18,23 +18,20 @@ interface VerifyOprfResponse {
   error?: string
 }
 
-type VerifyOprfRoute = {
-  Body: VerifyOprfRequest
-  Querystring: { devmode?: string }
-  Reply: VerifyOprfResponse
-}
-
 // oprf_auth circuit has 3 public inputs: comm_in (1 input) + (x, y) blinded query point (2 outputs)
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
 export async function verifyOprfRoute(fastify: FastifyInstance) {
-  const handler: RouteHandler<VerifyOprfRoute> = async (request, reply) => {
+  const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
+    request,
+    reply,
+  ) => {
     const startedAt = Date.now()
     const log = request.log.child({ route: "verify-oprf-auth" })
 
     const { blinded_unique_identifier, proofs } = request.body
 
-    const isDevMode = request.query.devmode === "true"
+    const isDevMode = request.query && (request.query as any).devmode === "true"
 
     log.info(
       { event: "received", proofCount: Array.isArray(proofs) ? proofs.length : null, devMode: isDevMode },
@@ -120,13 +117,16 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
-      const { verified, queryResultErrors } = await ZKPassport.verifyOprfAuth({
+      const zkpassport = new ZKPassport("*")
+      const { verified, queryResultErrors } = await zkpassport.verify({
         proofs,
         // Ignore facematch validation in dev mode
-        facematchMode: isDevMode ? "regular" : "strict",
+        originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
+        queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         devMode: isDevMode,
         validity: isDevMode ? IGNORE_VALIDITY_SECONDS : undefined,
-      })
+        verifierMode: "local",
+      } as any)
 
       if (!verified) {
         log.warn(
@@ -154,6 +154,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
     }
   }
 
-  fastify.post<VerifyOprfRoute>("/verify-oprf-auth", handler)
-  fastify.post<VerifyOprfRoute>("/oprf/verify", handler)
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/verify-oprf-auth", handler)
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/oprf/verify", handler)
 }
