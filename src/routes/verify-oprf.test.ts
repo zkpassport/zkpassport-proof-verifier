@@ -1,4 +1,4 @@
-import { describe, it, before, after } from "node:test"
+import { describe, it, before, after, mock } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -8,6 +8,7 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   getCommitmentInFromDisclosureProof,
+  getCurrentDateFromDisclosureProof,
 } from "@zkpassport/utils"
 
 // Load real proof fixture generated from a zkpassport mobile app test run.
@@ -171,18 +172,28 @@ describe("POST /oprf/verify", () => {
 
 
   it("should return verified: true with valid proofs and matching blinded identifier", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/verify-oprf-auth?devmode=true",
-      payload: {
-        blinded_unique_identifier: fixture.blinded_unique_identifier,
-        proofs: fixture.proofs,
-      },
-    })
+    // Run the clock at the moment the proofs were made, so the certificate root is looked up
+    // as it was then rather than now
+    const facematch = fixture.proofs.find((p: { name?: string }) => p.name?.startsWith("facematch"))
+    const proofData = getProofData(facematch.proof, getNumberOfPublicInputs(facematch.name))
+    mock.timers.enable({ apis: ["Date"], now: getCurrentDateFromDisclosureProof(proofData) })
 
-    const body = res.json()
-    assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
-    assert.equal(res.statusCode, 200)
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/verify-oprf-auth?devmode=true",
+        payload: {
+          blinded_unique_identifier: fixture.blinded_unique_identifier,
+          proofs: fixture.proofs,
+        },
+      })
+
+      const body = res.json()
+      assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
+      assert.equal(res.statusCode, 200)
+    } finally {
+      mock.timers.reset()
+    }
   })
 })
 

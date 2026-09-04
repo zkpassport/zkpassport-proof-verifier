@@ -6,6 +6,7 @@ import {
   getCommitmentInFromDisclosureProof,
 } from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
+import { IGNORE_VALIDITY_SECONDS } from "../validity"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -118,7 +119,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
       // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
-      const zkpassport = new ZKPassport(" ")
+      const zkpassport = new ZKPassport("*")
       const { verified, queryResultErrors } = await zkpassport.verify({
         proofs,
         // Ignore facematch validation in dev mode
@@ -126,6 +127,8 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         validity: isDevMode ? DEV_MODE_VALIDITY_SECONDS : undefined,
         devMode: isDevMode,
+        validity: isDevMode ? IGNORE_VALIDITY_SECONDS : undefined,
+        verifierMode: "local",
       } as any)
 
       if (!verified) {
