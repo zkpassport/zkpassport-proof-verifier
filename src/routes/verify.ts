@@ -116,7 +116,8 @@ export async function verifyRoute(fastify: FastifyInstance) {
         { err, event: "error", durationMs: Date.now() - startedAt },
         "Proof verification threw",
       )
-      return reply.status(400).send({ verified: false, error: message })
+      // Not a verdict on the proof, so callers must not show it as "not verified"
+      return reply.status(503).send({ verified: false, error: message })
     }
   }
 
