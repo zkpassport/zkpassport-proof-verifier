@@ -12,7 +12,9 @@ API service that verifies ZKPassport proofs server-side, so that services which 
   `{ ignoreValidity? }`. Proofs are checked against `domain` and `scope`, so pass the values the
   request was created with.
   Returns `{ verified, uniqueIdentifier?, uniqueIdentifierType?, ignoredValidity? }`, or 400
-  with `{ verified: false, error, queryResultErrors? }`.
+  with `{ verified: false, error, queryResultErrors? }` when the proof fails. A 503 with
+  `{ verified: false, error }` means the check could not run (for example the registry or an
+  RPC was unreachable) and is not a verdict on the proof.
 - `POST /verify-oprf-auth` (alias `POST /oprf/verify`) — verifies the 5-proof OPRF auth bundle
   for the OPRF nodes. Body: `{ blinded_unique_identifier, proofs }`.
 - `GET /health` — liveness.

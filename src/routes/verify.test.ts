@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { buildApp } from "../app"
 import type { FastifyInstance } from "fastify"
+import { ZKPassport } from "@zkpassport/sdk"
 import {
   getProofData,
   getNumberOfPublicInputs,
@@ -70,7 +71,7 @@ describe("POST /verify", () => {
     }
   })
 
-  it("should return 400 when proof verification throws", async () => {
+  it("should return 400 for a bogus proof the SDK reports as not verified", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
@@ -81,6 +82,19 @@ describe("POST /verify", () => {
       },
     })
     assert.equal(res.statusCode, 400)
+    assert.equal(res.json().verified, false)
+  })
+
+  it("should return 503 when proof verification throws", async (t) => {
+    t.mock.method(ZKPassport.prototype, "verify", async () => {
+      throw new Error("registry unreachable")
+    })
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify",
+      payload: { proofs, originalQuery: facematchQuery, queryResult: facematchQuery },
+    })
+    assert.equal(res.statusCode, 503)
     assert.equal(res.json().verified, false)
   })
 
