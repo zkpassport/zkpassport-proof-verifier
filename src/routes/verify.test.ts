@@ -99,18 +99,13 @@ describe("POST /verify", () => {
   })
 
   it("should return verified: true for valid proofs with a matching query", async () => {
+    const request = loadModeFixture("verify-fast-request.json")
     const res = await app.inject({
       method: "POST",
       url: "/verify",
       payload: {
-        proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: {
-          ...fixtureBinding,
-          validityPeriodInSeconds: TEN_YEARS_IN_SECONDS,
-          devMode: true,
-        },
+        ...request,
+        serviceConfig: { ...request.serviceConfig, validityPeriodInSeconds: TEN_YEARS_IN_SECONDS },
       },
     })
 
@@ -125,12 +120,7 @@ describe("POST /verify", () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
-      payload: {
-        proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: { ...fixtureBinding, devMode: true },
-      },
+      payload: loadModeFixture("verify-fast-request.json"),
     })
 
     assert.equal(res.statusCode, 400)
@@ -141,13 +131,7 @@ describe("POST /verify", () => {
     const res = await app.inject({
       method: "POST",
       url: "/verify",
-      payload: {
-        proofs,
-        originalQuery: facematchQuery,
-        queryResult: facematchQuery,
-        serviceConfig: { ...fixtureBinding, devMode: true },
-        options: { ignoreValidity: true },
-      },
+      payload: { ...loadModeFixture("verify-fast-request.json"), options: { ignoreValidity: true } },
     })
 
     const body = res.json()
