@@ -2,8 +2,17 @@ import Fastify, { type FastifyServerOptions } from "fastify"
 import cors from "@fastify/cors"
 import { verifyOprfRoute } from "./routes/verify-oprf"
 import { verifyRoute } from "./routes/verify"
+import {
+  verifyPassportProofRoute,
+  type VerifyPassportProofOptions,
+} from "./routes/verify-passport-proof"
 
-export function buildApp(opts: { logger?: FastifyServerOptions["logger"] } = {}) {
+export function buildApp(
+  opts: {
+    logger?: FastifyServerOptions["logger"]
+    verifyPassportProof?: VerifyPassportProofOptions
+  } = {},
+) {
   const fastify = Fastify({
     logger: opts.logger ?? false,
   })
@@ -21,6 +30,7 @@ export function buildApp(opts: { logger?: FastifyServerOptions["logger"] } = {})
 
   fastify.register(verifyOprfRoute)
   fastify.register(verifyRoute)
+  fastify.register(verifyPassportProofRoute, opts.verifyPassportProof ?? {})
 
   return fastify
 }
