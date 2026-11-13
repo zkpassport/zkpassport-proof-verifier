@@ -59,10 +59,10 @@ API service that verifies ZKPassport proofs server-side, so that services which 
 
 ## Docker image
 
-Every push publishes `ghcr.io/zkpassport/zkpassport-proof-verifier:<branch>` (and `:sha-<commit>`)
-through the "Publish image" workflow. To bake unreleased circuits into an image, run that
-workflow by hand with the URL of a tarball of the packaged circuits directory, which tags the
-image `:<branch>-circuits` as well:
+The "Publish image" workflow is run by hand (Actions, pick the branch) and publishes
+`ghcr.io/zkpassport/zkpassport-proof-verifier:<branch>` (and `:sha-<commit>`). To bake unreleased
+circuits into an image, give it the URL of a tarball of the packaged circuits directory, which
+tags the image `:<branch>-circuits` as well:
 
 ```bash
 # in the circuits repo, after npm run package-circuits

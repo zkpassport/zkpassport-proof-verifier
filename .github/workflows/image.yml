@@ -1,12 +1,10 @@
 name: Publish image
 
-# Builds the oracle image of any branch and publishes it to GitHub Container Registry as
-# ghcr.io/<repo>:<branch> and :sha-<commit>. Run it by hand with a packaged circuits tarball to
+# Run by hand on any branch: builds the oracle image and publishes it to GitHub Container
+# Registry as ghcr.io/<repo>:<branch> and :sha-<commit>. Give it a packaged circuits tarball to
 # bake unpublished circuits into the image (tagged :<branch>-circuits as well).
 
 on:
-  push:
-    branches: ["**"]
   workflow_dispatch:
     inputs:
       packaged_circuits_url:
