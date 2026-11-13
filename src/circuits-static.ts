@@ -16,8 +16,8 @@ type Manifest = { version: string; root: string; circuits: Record<string, { hash
 const normaliseHash = (hash: string) => hash.toLowerCase().replace(/^0x/, "").replace(/^0+/, "")
 
 // Serves a packaged circuits directory (target/packaged of the circuits repo) with the registry URL
-// layout. Only the manifest's own version and root are served, so a proof of another version is
-// never checked against the wrong vkey
+// layout. Only the manifest's own version and root are served; the proof backend falls back to the
+// public registry for anything else
 export async function circuitsStaticRoutes(fastify: FastifyInstance, opts: { dir: string }) {
   let manifest: Promise<Manifest> | undefined
   const getManifest = () => {

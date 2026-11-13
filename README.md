@@ -44,18 +44,16 @@ API service that verifies ZKPassport proofs server-side, so that services which 
   `<x>,<y>` (decimal or 0x-prefixed hex). Required for the `register`, `query` and `rotate`
   steps, which answer 500 without it. The registration circuit only checks the OPRF proof
   against the key it is given, so this pin is what stops a client from using a key of its own.
-- `CIRCUITS_URL` - fetch circuit manifests and packaged circuits from this base URL (registry
-  layout: `by-version/<version>/manifest.json`, `by-root/<root>/manifest.json`,
-  `by-hash/<hash>.json`) instead of the public circuit registry. For OPRF proofs only: the SDK
-  verifies the face match against the public registry, so a `rotate` bundle needs its
-  `facematch` circuit version published.
-- `CIRCUITS_DIR` - a packaged circuits directory (`manifest.json` and `circuits/<name>.json`, what
+- `CIRCUITS_URL` - a base URL with the registry layout (`by-version/<version>/manifest.json`,
+  `by-root/<root>/manifest.json`, `by-hash/<hash>.json`). Circuits served there take precedence;
+  anything not listed (other circuits, other versions) comes from the public circuit registry. For
+  OPRF proofs only: the SDK verifies the face match against the public registry.
+- `CIRCUITS_DIR` - a packaged circuits directory (`manifest.json` and `circuits/<name>.json`, as
   `npm run package-circuits` in the circuits repo writes to `target/packaged`) the oracle serves
-  itself under `/circuits` and verifies against when `CIRCUITS_URL` is not set. Default
-  `./packaged`, which the image bakes in from the repo's `packaged/` directory. Lets the OPRF
-  nodes be tested against circuits that are not released yet. Only the manifest's own version
-  is served, so proofs of another version are rejected rather than checked against the wrong
-  vkey.
+  itself under `/circuits` and uses as `CIRCUITS_URL` when that is not set. Default `./packaged`,
+  which the image bakes in from the repo's `packaged/` directory. Lets the OPRF nodes be tested
+  against circuits that are not released yet: package just those, e.g.
+  `npx tsx src/ts/scripts/circuit-packager --only oprf_registration`.
 
 ## Docker image
 

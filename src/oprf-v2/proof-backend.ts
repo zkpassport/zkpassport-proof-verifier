@@ -61,17 +61,26 @@ export function circuitUrlOverrides(baseUrl: string) {
 }
 
 // Unlike the SDK, looks every proof up under its own version: a cached base proof can be older
-// than a fresh OPRF proof
+// than a fresh OPRF proof. Circuits served at `circuitsUrl` take precedence; anything they do not
+// list (another circuit, another version) comes from the public registry
 export class RegistryProofBackend implements ProofBackend {
   private readonly registry: RegistryClient
-  private readonly manifests = new Map<string, Promise<CircuitManifest>>()
+  private readonly local?: RegistryClient
+  private readonly manifests = new Map<string, Promise<CircuitManifest | undefined>>()
   private readonly verifiers = new Map<BBVersion, Promise<LoadedVerifier>>()
 
-  constructor({ devMode, circuitsUrl }: { devMode: boolean; circuitsUrl?: string }) {
-    this.registry = createRegistryClient(
-      devMode ? "ethereum_sepolia" : "ethereum",
-      circuitsUrl ? circuitUrlOverrides(circuitsUrl) : {},
-    )
+  constructor({
+    devMode,
+    circuitsUrl,
+    createClient = createRegistryClient,
+  }: {
+    devMode: boolean
+    circuitsUrl?: string
+    createClient?: typeof createRegistryClient
+  }) {
+    const chain = devMode ? "ethereum_sepolia" : "ethereum"
+    this.registry = createClient(chain, {})
+    this.local = circuitsUrl ? createClient(chain, circuitUrlOverrides(circuitsUrl)) : undefined
   }
 
   async isCertificateRootValid(root: bigint): Promise<boolean> {
@@ -82,27 +91,38 @@ export class RegistryProofBackend implements ProofBackend {
     }
   }
 
-  private getManifest(version: string): Promise<CircuitManifest> {
-    let manifest = this.manifests.get(version)
+  private getManifest(client: RegistryClient, version: string) {
+    const key = `${client === this.local ? "local" : "registry"}:${version}`
+    let manifest = this.manifests.get(key)
     if (!manifest) {
-      manifest = this.registry.getCircuitManifest(undefined, { version })
-      this.manifests.set(version, manifest)
+      manifest = client.getCircuitManifest(undefined, { version })
+      // The local source only has one version, so a miss there is expected
+      if (client === this.local) manifest = manifest.catch(() => undefined)
+      this.manifests.set(key, manifest)
     }
     return manifest
+  }
+
+  private async getVkey(name: string, version: string): Promise<Uint8Array | undefined> {
+    for (const client of this.local ? [this.local, this.registry] : [this.registry]) {
+      const manifest = await this.getManifest(client, version)
+      if (!manifest?.circuits[name]) continue
+      const circuit = await client.getPackagedCircuit(name, manifest, { validate: true })
+      return new Uint8Array(Buffer.from(circuit.vkey, "base64"))
+    }
+    return undefined
   }
 
   async verifyProof(proof: ProofResult, publicInputCount: number): Promise<boolean> {
     const name = proof.name!
     const version = proof.version!
-    let vkey: Uint8Array
+    let vkey: Uint8Array | undefined
     try {
-      const manifest = await this.getManifest(version)
-      if (!manifest.circuits[name]) return false
-      const circuit = await this.registry.getPackagedCircuit(name, manifest, { validate: true })
-      vkey = new Uint8Array(Buffer.from(circuit.vkey, "base64"))
+      vkey = await this.getVkey(name, version)
     } catch (cause) {
       throw new ServiceUnavailableError(`Could not fetch circuit ${name}@${version}`, { cause })
     }
+    if (!vkey) return false
 
     const bbVersion = getBBVersionForCircuitVersion(version)
     let verifier = this.verifiers.get(bbVersion)
