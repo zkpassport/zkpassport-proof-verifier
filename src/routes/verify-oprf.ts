@@ -28,9 +28,7 @@ interface VerifyOprfResponse {
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
 export type VerifyOprfOptions = {
-  /** Fetch circuits from here instead of the public registry (`CIRCUITS_URL`) */
   circuitsUrl?: string
-  /** Override for tests */
   createBackend?: (devMode: boolean) => ProofBackend
 }
 
@@ -133,9 +131,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
         })
       }
 
-      // The SDK verifies the base proofs and the face match (commitment chain + cryptographic
-      // verification). oprf_auth is not a proof it knows (SDK 0.20 rejects it), so it is verified
-      // against the circuit registry below
+      // SDK 0.20 rejects oprf_auth as an unknown proof, so it is verified against the registry below
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
       const zkpassport = new ZKPassport("*")
       const { verified, queryResultErrors } = await zkpassport.verify({
@@ -185,7 +181,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
       if (err instanceof ServiceUnavailableError) {
-        // Not a verdict on the proofs: the node retries
         log.error({ err, event: "unavailable", durationMs: Date.now() - startedAt }, message)
         return reply.status(503).send({ verified: false, error: message })
       }

@@ -18,7 +18,6 @@ import {
 
 const isObject = (value: unknown) => typeof value === "object" && value !== null
 
-// A BN254 field element as a decimal or 0x-prefixed hex string
 const fieldElement = z.string().transform((value, ctx) => {
   let parsed: bigint
   try {
@@ -35,7 +34,7 @@ const fieldElement = z.string().transform((value, ctx) => {
   return parsed
 })
 
-// "0x<x><y>", 32 bytes each: the encoding the node uses for v1 blinded_unique_identifier
+// "0x<x><y>", as the node encodes blinded_unique_identifier in v1
 const hexPoint = z
   .string()
   .regex(/^0x[0-9a-fA-F]{128}$/, "Expected 0x followed by 64 bytes of hex (x then y)")
@@ -44,11 +43,7 @@ const hexPoint = z
     y: BigInt(`0x${value.slice(66)}`),
   }))
 
-/**
- * Request body. Points and field elements use the same JSON encoding as the node's types:
- * I as `SaltedIdentifier` (decimal strings [x, y]), commitment as `AuthCommitment` (decimal string).
- * Which of the optional fields a step needs is checked by `verifyBundle`.
- */
+// I and commitment use the node's JSON encoding: decimal strings
 const requestSchema = z.object({
   proofs: z.array(z.custom<ProofResult>(isObject, "Expected an object")).min(1),
   blinded_query: hexPoint.optional(),
@@ -65,23 +60,14 @@ interface OprfV2Response {
 }
 
 export type OprfOptions = {
-  /** Fetch circuits from here instead of the public registry (`CIRCUITS_URL`) */
   circuitsUrl?: string
-  /** Overrides for tests */
   createBackend?: (devMode: boolean) => ProofBackend
   verifyFacematch?: FacematchVerifier
   registrationPublicKey?: Point
 }
 
-/**
- * POST /oprf/v2/{identify,register,query,rotate}: verifies the proof bundle of one OPRF v2
- * protocol step for the OPRF nodes. See `verifyBundle` for what each step checks.
- *
- * 200 `{ verified: true }`; 400 `{ verified: false, error }` when the bundle is rejected; 503 when
- * the check could not run (registry or RPC unreachable), which the nodes retry.
- */
+// POST /oprf/v2/<step>: 200 verified, 400 rejected, 503 could not run (the node retries)
 export async function oprfV2Routes(fastify: FastifyInstance, opts: OprfOptions) {
-  // Read once at startup so a bad value fails the boot instead of every request
   const circuitsUrl = "circuitsUrl" in opts ? opts.circuitsUrl : getCircuitsUrl()
   const registrationPublicKey =
     "registrationPublicKey" in opts ? opts.registrationPublicKey : getRegistrationOprfPublicKey()

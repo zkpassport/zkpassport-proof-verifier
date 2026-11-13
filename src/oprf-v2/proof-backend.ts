@@ -2,7 +2,7 @@ import type { CircuitManifest, ProofResult } from "@zkpassport/utils"
 import { getProofData } from "@zkpassport/utils"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 
-/** The check could not run (registry or RPC unreachable). Not a verdict on the proofs. */
+/** The check could not run; not a verdict on the proofs */
 export class ServiceUnavailableError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options)
@@ -10,19 +10,15 @@ export class ServiceUnavailableError extends Error {
   }
 }
 
-/** Cryptographic checks the bundle verification relies on */
 export interface ProofBackend {
-  /** Whether `root` is a currently valid root of the ZKPassport certificate registry */
   isCertificateRootValid(root: bigint): Promise<boolean>
-  /** Verify `proof` against the vkey the circuit registry lists for its name and version */
   verifyProof(proof: ProofResult, publicInputCount: number): Promise<boolean>
-  /** Release bb.js */
   close(): Promise<void>
 }
 
 type BBVersion = "v5" | "v6"
 
-// Circuits from 0.22.0 on are built with bb 6, older ones with bb 5 (same rule as the SDK)
+// Circuits from 0.22.0 on are built with bb 6 (same rule as the SDK)
 export function getBBVersionForCircuitVersion(circuitVersion: string): BBVersion {
   const parts = circuitVersion.split(".").map(Number)
   if (parts.length !== 3 || parts.some(Number.isNaN)) return "v6"
@@ -50,7 +46,6 @@ async function loadVerifier(version: BBVersion): Promise<LoadedVerifier> {
   }
 }
 
-/** Registry client overrides that fetch manifests and packaged circuits from `baseUrl` */
 export function circuitUrlOverrides(baseUrl: string) {
   const base = baseUrl.replace(/\/+$/, "")
   return {
@@ -65,18 +60,14 @@ export function circuitUrlOverrides(baseUrl: string) {
   }
 }
 
-/**
- * Verifies proofs with the vkeys of the ZKPassport circuit registry, like the SDK does. Unlike the
- * SDK it looks up every proof under its own version, because a cached base proof can be older than
- * a freshly made OPRF proof.
- */
+// Unlike the SDK, looks every proof up under its own version: a cached base proof can be older
+// than a fresh OPRF proof
 export class RegistryProofBackend implements ProofBackend {
   private readonly registry: RegistryClient
   private readonly manifests = new Map<string, Promise<CircuitManifest>>()
   private readonly verifiers = new Map<BBVersion, Promise<LoadedVerifier>>()
 
   constructor({ devMode, circuitsUrl }: { devMode: boolean; circuitsUrl?: string }) {
-    // Same chain selection as the SDK for a query without a bind
     this.registry = createRegistryClient(
       devMode ? "ethereum_sepolia" : "ethereum",
       circuitsUrl ? circuitUrlOverrides(circuitsUrl) : {},
@@ -106,7 +97,6 @@ export class RegistryProofBackend implements ProofBackend {
     let vkey: Uint8Array
     try {
       const manifest = await this.getManifest(version)
-      // A circuit the registry does not list for this version is never valid
       if (!manifest.circuits[name]) return false
       const circuit = await this.registry.getPackagedCircuit(name, manifest, { validate: true })
       vkey = new Uint8Array(Buffer.from(circuit.vkey, "base64"))
@@ -124,7 +114,6 @@ export class RegistryProofBackend implements ProofBackend {
     try {
       loaded = await verifier
     } catch (cause) {
-      // bb did not start (missing binary, no memory): not a verdict on the proof
       this.verifiers.delete(bbVersion)
       throw new ServiceUnavailableError(`Could not load the bb ${bbVersion} verifier`, { cause })
     }
@@ -136,7 +125,6 @@ export class RegistryProofBackend implements ProofBackend {
         verificationKey: vkey,
       })
     } catch {
-      // Malformed proof bytes, or bb rejected the proof outright
       return false
     }
   }

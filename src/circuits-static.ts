@@ -2,10 +2,6 @@ import type { FastifyInstance, FastifyReply } from "fastify"
 import { access, readFile } from "node:fs/promises"
 import path from "node:path"
 
-/**
- * A packaged circuits directory, as `npm run package-circuits` in the circuits repo writes it to
- * target/packaged: `manifest.json` and `circuits/<name>.json`
- */
 export async function hasPackagedCircuits(dir: string): Promise<boolean> {
   try {
     await access(path.join(dir, "manifest.json"))
@@ -19,16 +15,9 @@ type Manifest = { version: string; root: string; circuits: Record<string, { hash
 
 const normaliseHash = (hash: string) => hash.toLowerCase().replace(/^0x/, "").replace(/^0+/, "")
 
-/**
- * Serves a packaged circuits directory under `/circuits` with the URL layout the registry client
- * and the SDK expect, so the oracle can verify proofs of circuits that are not published yet:
- *
- *   /circuits/by-version/<version>/manifest.json and /circuits/by-root/<root>/manifest.json
- *   /circuits/by-hash/<vkey hash>.json
- *
- * Only the manifest's own version and root are served; anything else is a 404, so a proof of
- * another circuit version is never checked against the wrong vkey.
- */
+// Serves a packaged circuits directory (target/packaged of the circuits repo) with the registry URL
+// layout. Only the manifest's own version and root are served, so a proof of another version is
+// never checked against the wrong vkey
 export async function circuitsStaticRoutes(fastify: FastifyInstance, opts: { dir: string }) {
   let manifest: Promise<Manifest> | undefined
   const getManifest = () => {

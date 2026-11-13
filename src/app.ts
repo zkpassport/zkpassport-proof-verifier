@@ -8,9 +8,7 @@ import { circuitsStaticRoutes } from "./circuits-static"
 export function buildApp(
   opts: {
     logger?: FastifyServerOptions["logger"]
-    /** Options of the OPRF routes (v1 and v2) */
     oprf?: OprfOptions
-    /** Packaged circuits to serve under /circuits, see circuits-static.ts */
     circuitsDir?: string
   } = {},
 ) {

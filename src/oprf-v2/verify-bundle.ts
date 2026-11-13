@@ -13,15 +13,6 @@ import {
 import type { Point } from "./config"
 import { ServiceUnavailableError, type ProofBackend } from "./proof-backend"
 
-/**
- * The four OPRF v2 protocol steps the oracle verifies, with the proofs each one requires
- * (on top of the 3 base proofs):
- *
- * - identify: oprf_auth. Step 1, OPRF under k_reg on the `register` module
- * - register: oprf_registration. Step 2, POST /api/registration
- * - query:    oprf_auth + oprf_registration. Step 3, OPRF under k_c on the `nullifier` module
- * - rotate:   facematch + oprf_registration. Step 4, POST /api/rotation
- */
 export type Mode = "identify" | "register" | "query" | "rotate"
 
 export const MODES: readonly Mode[] = ["identify", "register", "query", "rotate"]
@@ -46,18 +37,12 @@ const OPRF_REGISTRATION_PUBLIC_INPUT_COUNT = 6
 export type BundleRequest = {
   mode: Mode
   proofs: ProofResult[]
-  /** identify, query: the blinded query B of the OPRF session */
   blindedQuery?: Point
-  /** register, query, rotate: the registration id I */
   registrationId?: Point
-  /** register: x' to store; query: x' the node has stored for I; rotate: y' to store */
+  /** query: the commitment the node has stored for I; register, rotate: the one to store */
   commitment?: bigint
 }
 
-/**
- * Verifies a base + face-match bundle the way v1 does (SDK: proofs, commitment chain, attestation
- * root, app id, environment, strict mode and date)
- */
 export type FacematchVerifier = (
   proofs: ProofResult[],
   devMode: boolean,
@@ -65,7 +50,6 @@ export type FacematchVerifier = (
 
 export type VerifyContext = {
   backend: ProofBackend
-  /** Pinned public key of k_reg, required by every mode with an oprf_registration proof */
   registrationPublicKey?: Point
   verifyFacematch: FacematchVerifier
   devMode: boolean
@@ -82,7 +66,7 @@ function getProofKind(name: string | undefined): ProofKind | undefined {
   for (const kind of BASE_KINDS) if (name.startsWith(kind)) return kind
   if (name === "oprf_auth") return "oprf_auth"
   if (name === "oprf_registration") return "oprf_registration"
-  // The EVM variant has a different public input layout and is never part of these bundles
+  // The EVM variant has a different public input layout
   if (name.startsWith("facematch") && !name.endsWith("_evm")) return "facematch"
   return undefined
 }
@@ -96,7 +80,6 @@ function getPublicInputCount(kind: ProofKind, name: string): number {
 const samePoint = (a: Point, b: Point) => a.x === b.x && a.y === b.y
 const formatPoint = (p: Point) => `(${p.x}, ${p.y})`
 
-/** Sort the proofs by kind and check the bundle is exactly what `mode` requires */
 function classify(
   mode: Mode,
   proofs: ProofResult[],
@@ -122,18 +105,9 @@ function classify(
   return { byKind }
 }
 
-/**
- * Verifies an OPRF v2 proof bundle for one protocol step.
- *
- * Every mode checks that the base proofs form one chain from a currently valid certificate
- * registry root to the passport commitment P, that every other proof opens that same P, and that
- * every proof verifies against the circuit registry. On top of that:
- *
- * - oprf_auth: its blinded query is the one of the OPRF session
- * - oprf_registration: its registration id and commitment are the ones of the request, and it was
- *   evaluated under the pinned k_reg
- * - facematch: the v1 face-match checks
- */
+// Base chain from a valid certificate root to P, every other proof opens the same P, oprf_auth
+// matches the blinded query, oprf_registration matches I, the pinned k_reg and the commitment,
+// then every proof is verified against the circuit registry
 export async function verifyBundle(req: BundleRequest, ctx: VerifyContext): Promise<BundleVerdict> {
   const classified = classify(req.mode, req.proofs)
   if ("error" in classified) return reject(classified.error)
@@ -156,8 +130,7 @@ export async function verifyBundle(req: BundleRequest, ctx: VerifyContext): Prom
     }
   }
 
-  // Public inputs. Buffer.from(hex) silently drops invalid hex, so check the encoding first:
-  // the public inputs are the first 32-byte fields of the proof
+  // Buffer.from(hex) silently drops invalid hex, so check the encoding first
   const publicInputs = new Map<ProofKind, bigint[]>()
   const proofData = new Map<ProofKind, ReturnType<typeof getProofData>>()
   try {
@@ -178,7 +151,6 @@ export async function verifyBundle(req: BundleRequest, ctx: VerifyContext): Prom
     return reject("Malformed proof")
   }
 
-  // Base chain: certificate root -> DSC -> ID data -> integrity -> P
   const dsc = proofData.get("sig_check_dsc")!
   const idData = proofData.get("sig_check_id_data")!
   const integrity = proofData.get("data_check_integrity")!
@@ -224,16 +196,14 @@ export async function verifyBundle(req: BundleRequest, ctx: VerifyContext): Prom
     }
   }
 
-  // Everything below needs the registry or bb
   try {
-    // Base proofs carry no date: the root must be valid now
     if (!(await ctx.backend.isCertificateRootValid(getMerkleRootFromDSCProof(dsc)))) {
       return reject("The ID was signed by an unrecognized root certificate")
     }
 
     let toVerify = [...byKind.entries()]
     if (has("facematch")) {
-      // The SDK verifies the base proofs and the face match, as in v1
+      // The SDK verifies the base proofs along with the face match
       const base = BASE_KINDS.map((kind) => byKind.get(kind)!)
       const facematch = await ctx.verifyFacematch([...base, byKind.get("facematch")!], ctx.devMode)
       if (!facematch.verified) {

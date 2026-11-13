@@ -4,11 +4,7 @@ import { IGNORE_VALIDITY_SECONDS } from "../validity"
 import type { FacematchVerifier } from "./verify-bundle"
 import { ServiceUnavailableError } from "./proof-backend"
 
-/**
- * Verify 3 base proofs + a face-match proof with the SDK, with the same query as v1
- * /verify-oprf-auth: strict mode (regular in dev mode), production attestation, ZKPassport app id,
- * date within the default validity.
- */
+// Same SDK query as v1 /verify-oprf-auth
 export const verifyFacematchWithSdk: FacematchVerifier = async (
   proofs: ProofResult[],
   devMode: boolean,
@@ -25,7 +21,7 @@ export const verifyFacematchWithSdk: FacematchVerifier = async (
       verifierMode: "local",
     } as any)
   } catch (cause) {
-    // The SDK reports bad proofs as verified: false; a throw means it could not run
+    // A throw means the SDK could not run, not that the proofs are bad
     throw new ServiceUnavailableError("Could not run the face match verification", { cause })
   }
   return result.verified

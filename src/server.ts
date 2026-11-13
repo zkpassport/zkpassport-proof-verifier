@@ -8,8 +8,7 @@ const port = parseInt(process.env.PORT || "8080", 10)
 const host = process.env.HOST || "0.0.0.0"
 
 async function main() {
-  // Circuits to verify against: CIRCUITS_URL, else a packaged circuits directory the oracle
-  // serves itself (CIRCUITS_DIR, default ./packaged), else the public circuit registry
+  // CIRCUITS_URL, else a packaged directory the oracle serves itself, else the public registry
   const circuitsDir = path.resolve(process.env.CIRCUITS_DIR || "packaged")
   const servesCircuits = await hasPackagedCircuits(circuitsDir)
   const circuitsUrl =
