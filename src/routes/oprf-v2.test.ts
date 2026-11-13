@@ -100,7 +100,7 @@ class FakeBackend implements ProofBackend {
   }
 }
 
-describe("POST /verify-passport-proof", () => {
+describe("POST /oprf/v2/<step>", () => {
   let app: FastifyInstance
   let backend: FakeBackend
   let facematchCalls: ProofResult[][]
@@ -115,8 +115,9 @@ describe("POST /verify-passport-proof", () => {
 
   type Payload = Record<string, unknown>
 
-  const send = async (payload: Payload, target = app) => {
-    const res = await target.inject({ method: "POST", url: "/verify-passport-proof", payload })
+  // The step is the route; the request builders above carry it as `mode`
+  const send = async ({ mode, ...payload }: Payload, target = app) => {
+    const res = await target.inject({ method: "POST", url: `/oprf/v2/${mode}`, payload })
     return { status: res.statusCode, body: res.json() }
   }
 
@@ -130,10 +131,10 @@ describe("POST /verify-passport-proof", () => {
   before(async () => {
     const createBackend = () => backend
     app = buildApp({
-      verifyPassportProof: { createBackend, verifyFacematch, registrationPublicKey: K_REG },
+      oprf: { createBackend, verifyFacematch, registrationPublicKey: K_REG },
     })
     appWithoutKey = buildApp({
-      verifyPassportProof: { createBackend, verifyFacematch, registrationPublicKey: undefined },
+      oprf: { createBackend, verifyFacematch, registrationPublicKey: undefined },
     })
     await Promise.all([app.ready(), appWithoutKey.ready()])
   })
@@ -199,8 +200,8 @@ describe("POST /verify-passport-proof", () => {
   })
 
   describe("request validation", () => {
-    it("rejects an unknown mode", async () => {
-      await expectRejected({ ...requests.identify(), mode: "nullifier" }, /mode/)
+    it("has no route for an unknown step", async () => {
+      assert.equal((await send({ ...requests.identify(), mode: "nullifier" })).status, 404)
     })
 
     it("rejects a malformed blinded_query", async () => {
@@ -383,7 +384,7 @@ const fixture = JSON.parse(
   readFileSync(join(__dirname, "../test/fixtures/oprf-verify-request.json"), "utf8"),
 )
 
-describe("POST /verify-passport-proof with real proofs", () => {
+describe("POST /oprf/v2/<step> with real proofs", () => {
   let app: FastifyInstance
 
   before(async () => {
@@ -396,7 +397,6 @@ describe("POST /verify-passport-proof with real proofs", () => {
   })
 
   const identifyPayload = (blindedQuery: string) => ({
-    mode: "identify",
     proofs: fixture.proofs.filter((p: ProofResult) => !p.name?.startsWith("facematch")),
     blinded_query: blindedQuery,
   })
@@ -409,7 +409,7 @@ describe("POST /verify-passport-proof with real proofs", () => {
     try {
       const res = await app.inject({
         method: "POST",
-        url: "/verify-passport-proof?devmode=true",
+        url: "/oprf/v2/identify?devmode=true",
         payload: identifyPayload(fixture.blinded_unique_identifier),
       })
       const body = res.json()
@@ -423,7 +423,7 @@ describe("POST /verify-passport-proof with real proofs", () => {
   it("identify: rejects a real bundle for another session's blinded query", async () => {
     const res = await app.inject({
       method: "POST",
-      url: "/verify-passport-proof?devmode=true",
+      url: "/oprf/v2/identify?devmode=true",
       payload: identifyPayload(`0x${"01".repeat(64)}`),
     })
     assert.equal(res.statusCode, 400)

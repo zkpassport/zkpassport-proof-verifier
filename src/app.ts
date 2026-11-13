@@ -2,15 +2,16 @@ import Fastify, { type FastifyServerOptions } from "fastify"
 import cors from "@fastify/cors"
 import { verifyOprfRoute } from "./routes/verify-oprf"
 import { verifyRoute } from "./routes/verify"
-import {
-  verifyPassportProofRoute,
-  type VerifyPassportProofOptions,
-} from "./routes/verify-passport-proof"
+import { oprfV2Routes, type OprfOptions } from "./routes/oprf-v2"
+import { circuitsStaticRoutes } from "./circuits-static"
 
 export function buildApp(
   opts: {
     logger?: FastifyServerOptions["logger"]
-    verifyPassportProof?: VerifyPassportProofOptions
+    /** Options of the OPRF routes (v1 and v2) */
+    oprf?: OprfOptions
+    /** Packaged circuits to serve under /circuits, see circuits-static.ts */
+    circuitsDir?: string
   } = {},
 ) {
   const fastify = Fastify({
@@ -28,9 +29,10 @@ export function buildApp(
     return { status: "ok" }
   })
 
-  fastify.register(verifyOprfRoute)
+  if (opts.circuitsDir) fastify.register(circuitsStaticRoutes, { dir: opts.circuitsDir })
+  fastify.register(verifyOprfRoute, opts.oprf ?? {})
   fastify.register(verifyRoute)
-  fastify.register(verifyPassportProofRoute, opts.verifyPassportProof ?? {})
+  fastify.register(oprfV2Routes, opts.oprf ?? {})
 
   return fastify
 }

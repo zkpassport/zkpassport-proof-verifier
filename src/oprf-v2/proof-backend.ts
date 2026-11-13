@@ -50,6 +50,21 @@ async function loadVerifier(version: BBVersion): Promise<LoadedVerifier> {
   }
 }
 
+/** Registry client overrides that fetch manifests and packaged circuits from `baseUrl` */
+export function circuitUrlOverrides(baseUrl: string) {
+  const base = baseUrl.replace(/\/+$/, "")
+  return {
+    circuitManifestUrlGenerator: (
+      _chainId: number,
+      { root, version }: { root?: string; version?: string },
+    ) =>
+      root
+        ? `${base}/by-root/${root}/manifest.json`
+        : `${base}/by-version/${version}/manifest.json`,
+    packagedCircuitUrlGenerator: (_chainId: number, hash: string) => `${base}/by-hash/${hash}.json`,
+  }
+}
+
 /**
  * Verifies proofs with the vkeys of the ZKPassport circuit registry, like the SDK does. Unlike the
  * SDK it looks up every proof under its own version, because a cached base proof can be older than
@@ -60,9 +75,12 @@ export class RegistryProofBackend implements ProofBackend {
   private readonly manifests = new Map<string, Promise<CircuitManifest>>()
   private readonly verifiers = new Map<BBVersion, Promise<LoadedVerifier>>()
 
-  constructor({ devMode }: { devMode: boolean }) {
+  constructor({ devMode, circuitsUrl }: { devMode: boolean; circuitsUrl?: string }) {
     // Same chain selection as the SDK for a query without a bind
-    this.registry = createRegistryClient(devMode ? "ethereum_sepolia" : "ethereum")
+    this.registry = createRegistryClient(
+      devMode ? "ethereum_sepolia" : "ethereum",
+      circuitsUrl ? circuitUrlOverrides(circuitsUrl) : {},
+    )
   }
 
   async isCertificateRootValid(root: bigint): Promise<boolean> {
@@ -102,11 +120,17 @@ export class RegistryProofBackend implements ProofBackend {
       verifier = loadVerifier(bbVersion)
       this.verifiers.set(bbVersion, verifier)
     }
+    let loaded: LoadedVerifier
+    try {
+      loaded = await verifier
+    } catch (cause) {
+      // bb did not start (missing binary, no memory): not a verdict on the proof
+      this.verifiers.delete(bbVersion)
+      throw new ServiceUnavailableError(`Could not load the bb ${bbVersion} verifier`, { cause })
+    }
     try {
       const proofData = getProofData(proof.proof as string, publicInputCount)
-      return await (
-        await verifier
-      ).verifyProof({
+      return await loaded.verifyProof({
         proof: Buffer.from(proofData.proof.join(""), "hex"),
         publicInputs: proofData.publicInputs,
         verificationKey: vkey,

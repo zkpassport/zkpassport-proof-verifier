@@ -32,3 +32,14 @@ export function getRegistrationOprfPublicKey(
   })
   return { x, y }
 }
+
+/**
+ * Where to fetch circuit manifests and packaged circuits from instead of the public circuit
+ * registry: `CIRCUITS_URL`, a base URL with the registry layout (`by-version/<v>/manifest.json`,
+ * `by-root/<root>/manifest.json`, `by-hash/<hash>.json`). Lets the oracle verify proofs of
+ * circuits that are not published yet, for example ones it serves itself from `CIRCUITS_DIR`.
+ */
+export function getCircuitsUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const raw = env.CIRCUITS_URL?.trim()
+  return raw ? raw.replace(/\/+$/, "") : undefined
+}

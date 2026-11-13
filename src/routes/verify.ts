@@ -72,13 +72,13 @@ export async function verifyRoute(fastify: FastifyInstance) {
     )
 
     // Nothing here checks an OPRF proof, so accepting one would call it verified when it never
-    // was. /verify-oprf-auth (v1) and /verify-passport-proof (v2) are the routes that check them.
+    // was. /verify-oprf-auth (v1) and /oprf/v2/<step> (v2) are the routes that check them.
     if (body.proofs.some((proof) => isOprfAuthProof(proof.name))) {
       log.warn({ event: "rejected", reason: "oprf_auth_proof" }, "OPRF proof sent to /verify")
       return reply.status(400).send({
         verified: false,
         error:
-          "OPRF proofs are not verified here, use POST /verify-oprf-auth or /verify-passport-proof instead",
+          "OPRF proofs are not verified here, use POST /verify-oprf-auth or /oprf/v2/<step> instead",
       })
     }
 

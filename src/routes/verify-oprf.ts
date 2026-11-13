@@ -7,6 +7,12 @@ import {
 } from "@zkpassport/utils"
 import { ZKPassport } from "@zkpassport/sdk"
 import { IGNORE_VALIDITY_SECONDS } from "../validity"
+import { getCircuitsUrl } from "../oprf-v2/config"
+import {
+  RegistryProofBackend,
+  ServiceUnavailableError,
+  type ProofBackend,
+} from "../oprf-v2/proof-backend"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -21,7 +27,19 @@ interface VerifyOprfResponse {
 // oprf_auth circuit has 3 public inputs: comm_in (1 input) + (x, y) blinded query point (2 outputs)
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
-export async function verifyOprfRoute(fastify: FastifyInstance) {
+export type VerifyOprfOptions = {
+  /** Fetch circuits from here instead of the public registry (`CIRCUITS_URL`) */
+  circuitsUrl?: string
+  /** Override for tests */
+  createBackend?: (devMode: boolean) => ProofBackend
+}
+
+export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprfOptions = {}) {
+  const circuitsUrl = "circuitsUrl" in opts ? opts.circuitsUrl : getCircuitsUrl()
+  const createBackend =
+    opts.createBackend ??
+    ((devMode: boolean) => new RegistryProofBackend({ devMode, circuitsUrl }))
+
   const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
     request,
     reply,
@@ -31,7 +49,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
 
     const { blinded_unique_identifier, proofs } = request.body
 
-    const isDevMode = request.query && (request.query as any).devmode === "true"
+    const isDevMode = (request.query as any)?.devmode === "true"
 
     log.info(
       { event: "received", proofCount: Array.isArray(proofs) ? proofs.length : null, devMode: isDevMode },
@@ -115,11 +133,13 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         })
       }
 
-      // Use ZKPassport SDK to verify all proofs (commitment chain + cryptographic verification).
+      // The SDK verifies the base proofs and the face match (commitment chain + cryptographic
+      // verification). oprf_auth is not a proof it knows (SDK 0.20 rejects it), so it is verified
+      // against the circuit registry below
       log.info({ event: "sdk_verify_start" }, "Running ZKPassport SDK proof verification")
       const zkpassport = new ZKPassport("*")
       const { verified, queryResultErrors } = await zkpassport.verify({
-        proofs,
+        proofs: proofs.filter((p) => p !== oprfAuthProof),
         // Ignore facematch validation in dev mode
         originalQuery: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
         queryResult: { facematch: { mode: isDevMode ? "regular" : "strict", passed: true } },
@@ -139,6 +159,24 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         })
       }
 
+      const backend = createBackend(isDevMode)
+      let oprfAuthVerified: boolean
+      try {
+        oprfAuthVerified = await backend.verifyProof(oprfAuthProof, OPRF_AUTH_PUBLIC_INPUT_COUNT)
+      } finally {
+        await backend.close()
+      }
+      if (!oprfAuthVerified) {
+        log.warn(
+          { event: "verification_failed", proof: "oprf_auth", durationMs: Date.now() - startedAt },
+          "oprf_auth proof does not verify",
+        )
+        return reply.status(400).send({
+          verified: false,
+          error: `Proof verification failed: ${oprfAuthProof.name}@${oprfAuthProof.version}`,
+        })
+      }
+
       log.info(
         { event: "verified", durationMs: Date.now() - startedAt },
         "verify-oprf-auth succeeded",
@@ -146,6 +184,11 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       return reply.send({ verified: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
+      if (err instanceof ServiceUnavailableError) {
+        // Not a verdict on the proofs: the node retries
+        log.error({ err, event: "unavailable", durationMs: Date.now() - startedAt }, message)
+        return reply.status(503).send({ verified: false, error: message })
+      }
       log.error({ err, event: "error", durationMs: Date.now() - startedAt }, "Proof verification threw")
       return reply.status(400).send({
         verified: false,

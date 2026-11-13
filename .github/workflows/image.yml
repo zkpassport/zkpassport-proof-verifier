@@ -1,0 +1,78 @@
+name: Publish image
+
+# Builds the oracle image of any branch and publishes it to GitHub Container Registry as
+# ghcr.io/<repo>:<branch> and :sha-<commit>. Run it by hand with a packaged circuits tarball to
+# bake unpublished circuits into the image (tagged :<branch>-circuits as well).
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      packaged_circuits_url:
+        description: "URL of a .tar.gz of a packaged circuits directory (manifest.json and circuits/) to bake into the image"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add packaged circuits
+        if: inputs.packaged_circuits_url != ''
+        run: |
+          curl -fsSL "${{ inputs.packaged_circuits_url }}" | tar -xz -C packaged
+          test -f packaged/manifest.json || { echo "The tarball has no manifest.json at its root" >&2; exit 1; }
+          node -p "const m = require('./packaged/manifest.json'); 'circuits ' + m.version + ', ' + Object.keys(m.circuits).length + ' circuits'"
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=${{ github.ref_name }}-circuits,enable=${{ inputs.packaged_circuits_url != '' }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          pull: true
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test amd64 bb binary
+        run: |
+          IMAGE="${IMAGE}:sha-${GITHUB_SHA}"
+          docker run --rm --platform linux/amd64 --entrypoint sh "$IMAGE" \
+            -c "/app/node_modules/@aztec/bb.js/build/amd64-linux/bb --version"
