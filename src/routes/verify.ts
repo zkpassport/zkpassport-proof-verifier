@@ -36,7 +36,10 @@ type VerifyResponse = Partial<VerificationResult> & {
 const PLACEHOLDER_DOMAIN = " "
 
 const isOprfAuthProof = (name?: string) =>
-  !!name && (name.startsWith("oprf_auth") || name.startsWith("oprf-auth"))
+  !!name &&
+  (name.startsWith("oprf_auth") ||
+    name.startsWith("oprf-auth") ||
+    name.startsWith("oprf_registration"))
 
 export async function verifyRoute(fastify: FastifyInstance) {
   const handler: RouteHandler<{ Body: unknown; Reply: VerifyResponse }> = async (
@@ -68,13 +71,14 @@ export async function verifyRoute(fastify: FastifyInstance) {
       "verify request received",
     )
 
-    // Nothing here checks an oprf_auth proof, so accepting one would call it verified
-    // when it never was. /verify-oprf-auth is the route that checks them.
+    // Nothing here checks an OPRF proof, so accepting one would call it verified when it never
+    // was. /verify-oprf-auth (v1) and /oprf/v2/<step> (v2) are the routes that check them.
     if (body.proofs.some((proof) => isOprfAuthProof(proof.name))) {
-      log.warn({ event: "rejected", reason: "oprf_auth_proof" }, "oprf_auth proof sent to /verify")
+      log.warn({ event: "rejected", reason: "oprf_auth_proof" }, "OPRF proof sent to /verify")
       return reply.status(400).send({
         verified: false,
-        error: "oprf_auth proofs are not verified here, use POST /verify-oprf-auth instead",
+        error:
+          "OPRF proofs are not verified here, use POST /verify-oprf-auth or /oprf/v2/<step> instead",
       })
     }
 

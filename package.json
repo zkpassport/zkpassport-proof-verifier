@@ -10,9 +10,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@aztec-foundation/bb.js": "6.0.0",
+    "@aztec/bb.js": "5.0.0",
     "@fastify/cors": "^11.3.0",
-    "@zkpassport/sdk": "^0.19.3",
-    "@zkpassport/utils": "0.40.0-beta.3",
+    "@zkpassport/registry": "^0.15.3",
+    "@zkpassport/sdk": "^0.20.1",
+    "@zkpassport/utils": "^0.40.0",
     "fastify": "^5.2.1",
     "zod": "^4.4.3"
   },
