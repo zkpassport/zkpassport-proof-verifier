@@ -140,6 +140,32 @@ describe("POST /oprf/verify", () => {
     ],
   })
 
+  it("takes an Aadhaar's single base proof in place of a chip ID's three", async () => {
+    const chip = buildPayload(COMM_B)
+    const aadhaar = {
+      ...chip,
+      proofs: [
+        { name: "aadhaar_id", version: "0.23.0", proof: makeProof(Array(3).fill(WORD("c1"))) },
+        ...chip.proofs.slice(3),
+      ],
+    }
+    const res = await app.inject({ method: "POST", url: "/verify-oprf-auth", payload: aadhaar })
+    assert.equal(res.statusCode, 400)
+    // Past the proof count, to the comm_in check the tampered oprf_auth fails
+    assert.match(res.json().error, /oprf_auth comm_in does not match facematch comm_in/)
+  })
+
+  it("refuses three subproofs without a single base proof", async () => {
+    const chip = buildPayload(COMM_A)
+    const res = await app.inject({
+      method: "POST",
+      url: "/verify-oprf-auth",
+      payload: { ...chip, proofs: chip.proofs.slice(2) },
+    })
+    assert.equal(res.statusCode, 400)
+    assert.match(res.json().error, /Expected 5 subproofs/)
+  })
+
   it("should return 400 when oprf_auth comm_in does not match facematch comm_in", async () => {
     const res = await app.inject({
       method: "POST",

@@ -8,6 +8,8 @@ import {
 import { ZKPassport } from "@zkpassport/sdk"
 import { IGNORE_VALIDITY_SECONDS } from "../validity"
 
+const SINGLE_BASE_PROOF_PREFIXES = ["aadhaar_id", "attested_id"]
+
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
   proofs: ProofResult[]
@@ -46,14 +48,22 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       })
     }
 
-    if (proofs.length !== 5) {
+    // An Aadhaar (aadhaar_id) or a camera-read ID (attested_id) has one base proof in place
+    // of a chip ID's three
+    const singleBaseProof = proofs.some((p) =>
+      SINGLE_BASE_PROOF_PREFIXES.some((prefix) => p.name?.startsWith(prefix)),
+    )
+    const expectedProofCount = singleBaseProof ? 3 : 5
+    if (proofs.length !== expectedProofCount) {
       log.warn(
         { event: "bad_request", reason: "proof_count", proofCount: proofs.length },
         "Unexpected number of subproofs",
       )
       return reply.status(400).send({
         verified: false,
-        error: `Expected 5 subproofs (3 base + facematch + oprf_auth), got ${proofs.length}`,
+        error: singleBaseProof
+          ? `Expected 3 subproofs (1 base + facematch + oprf_auth), got ${proofs.length}`
+          : `Expected 5 subproofs (3 base + facematch + oprf_auth), got ${proofs.length}`,
       })
     }
 
