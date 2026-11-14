@@ -151,7 +151,6 @@ describe("POST /oprf/verify", () => {
     }
     const res = await app.inject({ method: "POST", url: "/verify-oprf-auth", payload: aadhaar })
     assert.equal(res.statusCode, 400)
-    // Past the proof count, to the comm_in check the tampered oprf_auth fails
     assert.match(res.json().error, /oprf_auth comm_in does not match facematch comm_in/)
   })
 

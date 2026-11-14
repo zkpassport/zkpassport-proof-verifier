@@ -48,8 +48,7 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       })
     }
 
-    // An Aadhaar (aadhaar_id) or a camera-read ID (attested_id) has one base proof in place
-    // of a chip ID's three
+    // These IDs have one base proof in place of a chip ID's three
     const singleBaseProof = proofs.some((p) =>
       SINGLE_BASE_PROOF_PREFIXES.some((prefix) => p.name?.startsWith(prefix)),
     )
