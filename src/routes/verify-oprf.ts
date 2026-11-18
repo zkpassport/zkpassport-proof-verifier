@@ -7,7 +7,7 @@ import {
 } from "@zkpassport/utils"
 import { VerificationTier, ZKPassport } from "@zkpassport/sdk"
 import { IGNORE_VALIDITY_SECONDS } from "../validity"
-import { verifyOprfAuthProof } from "../lib/oprf-auth-proof"
+import { ServiceUnavailableError, type GetBackend } from "../oprf-v2/proof-backend"
 
 interface VerifyOprfRequest {
   blinded_unique_identifier: string
@@ -25,7 +25,12 @@ const MIN_PROOF_COUNT = 3
 // oprf_auth circuit has 3 public inputs: comm_in (1 input) + (x, y) blinded query point (2 outputs)
 const OPRF_AUTH_PUBLIC_INPUT_COUNT = 3
 
-export async function verifyOprfRoute(fastify: FastifyInstance) {
+export type VerifyOprfOptions = {
+  getBackend: GetBackend
+}
+
+export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprfOptions) {
+
   const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
     request,
     reply,
@@ -156,7 +161,10 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
         })
       }
 
-      if (!(await verifyOprfAuthProof(oprfAuthProof, isDevMode))) {
+      const oprfAuthVerified = await opts
+        .getBackend(isDevMode)
+        .verifyProof(oprfAuthProof, OPRF_AUTH_PUBLIC_INPUT_COUNT)
+      if (!oprfAuthVerified) {
         log.warn(
           { event: "verification_failed", proof: "oprf_auth", durationMs: Date.now() - startedAt },
           "oprf_auth proof verification failed",
@@ -174,6 +182,10 @@ export async function verifyOprfRoute(fastify: FastifyInstance) {
       return reply.send({ verified: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
+      if (err instanceof ServiceUnavailableError) {
+        log.error({ err, event: "unavailable", durationMs: Date.now() - startedAt }, message)
+        return reply.status(503).send({ verified: false, error: message })
+      }
       log.error({ err, event: "error", durationMs: Date.now() - startedAt }, "Proof verification threw")
       return reply.status(400).send({
         verified: false,

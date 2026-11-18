@@ -2,6 +2,10 @@ node_modules
 dist
 .DS_Store
 
+# Packaged circuits baked into the image (see README), not committed
+packaged/*
+!packaged/.gitkeep
+
 # Terraform
 **/.terraform/
 *.tfstate

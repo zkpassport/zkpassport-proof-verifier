@@ -1,0 +1,11 @@
+{
+  "version": "0.22.0",
+  "root": "0x29dce1169bc1b0e92d033db81b41fe09bb094e440b80e7e7027d7d3d971ed0ca",
+  "circuits": {
+    "oprf_registration": {
+      "hash": "0x232dfea019d11c5b268f7dbb6d2c70deb05b96b8588063b4dfe5861eaf69ca88",
+      "cid": "QmTW2pau2M1fPYfcNCtoekvwev1cEKAnnuQwE6L6NRUiDp",
+      "size": 54364
+    }
+  }
+}
