@@ -110,13 +110,12 @@ describe("POST /oprf/v2/<step>", () => {
   // The step is the route; the request builders above carry it as `mode`
   const send = async ({ mode, ...payload }: Payload, target = app) => {
     const res = await target.inject({ method: "POST", url: `/oprf/v2/${mode}`, payload })
-    return { status: res.statusCode, body: res.json() }
+    return { status: res.statusCode, body: res.body ? res.json() : undefined }
   }
 
   const expectRejected = async (payload: Payload, error: RegExp, status = 400, target = app) => {
     const res = await send(payload, target)
     assert.equal(res.status, status, JSON.stringify(res.body))
-    assert.equal(res.body.verified, false)
     assert.match(res.body.error, error)
   }
 
@@ -149,8 +148,7 @@ describe("POST /oprf/v2/<step>", () => {
   describe("valid bundles", () => {
     it("identify: verifies 3 base + oprf_auth", async () => {
       const res = await send(requests.identify())
-      assert.equal(res.status, 200, JSON.stringify(res.body))
-      assert.deepEqual(res.body, { verified: true })
+      assert.equal(res.status, 204, JSON.stringify(res.body))
       assert.deepEqual(backend.verified, [
         `${NAMES.dsc}/2`,
         `${NAMES.idData}/2`,
@@ -161,20 +159,20 @@ describe("POST /oprf/v2/<step>", () => {
 
     it("register: verifies 3 base + oprf_registration", async () => {
       const res = await send(requests.register())
-      assert.equal(res.status, 200, JSON.stringify(res.body))
+      assert.equal(res.status, 204, JSON.stringify(res.body))
       assert.ok(backend.verified.includes("oprf_registration/6"))
       assert.equal(backend.verified.length, 4)
     })
 
     it("query: verifies 3 base + oprf_auth + oprf_registration", async () => {
       const res = await send(requests.query())
-      assert.equal(res.status, 200, JSON.stringify(res.body))
+      assert.equal(res.status, 204, JSON.stringify(res.body))
       assert.equal(backend.verified.length, 5)
     })
 
     it("rotate: the SDK verifies base + facematch, the oracle verifies oprf_registration", async () => {
       const res = await send(requests.rotate())
-      assert.equal(res.status, 200, JSON.stringify(res.body))
+      assert.equal(res.status, 204, JSON.stringify(res.body))
       assert.equal(facematchCalls.length, 1)
       assert.deepEqual(
         facematchCalls[0].map((p) => p.name),
@@ -348,7 +346,7 @@ describe("POST /oprf/v2/<step> with real v2 bundles", () => {
   for (const step of ["identify", "register", "query", "rotate"]) {
     it(`${step}: verifies`, async () => {
       const res = await post(step, v2Fixture(step))
-      assert.equal(res.statusCode, 200, res.body)
+      assert.equal(res.statusCode, 204, res.body)
     })
   }
 

@@ -50,8 +50,7 @@ const requestSchema = z.object({
 })
 
 interface OprfV2Response {
-  verified: boolean
-  error?: string
+  error: string
 }
 
 export type OprfOptions = {
@@ -66,7 +65,7 @@ export type OprfV2RouteOptions = Pick<OprfOptions, "verifyFacematch" | "registra
   getBackend: GetBackend
 }
 
-// POST /oprf/v2/<step>: 200 verified, 400 rejected, 503 could not run (the node retries)
+// POST /oprf/v2/<step>: 204 verified, 400 rejected, 503 could not run (the node retries)
 export async function oprfV2Routes(fastify: FastifyInstance, opts: OprfV2RouteOptions) {
   const registrationPublicKey =
     "registrationPublicKey" in opts ? opts.registrationPublicKey : getRegistrationOprfPublicKey()
@@ -76,7 +75,7 @@ export async function oprfV2Routes(fastify: FastifyInstance, opts: OprfV2RouteOp
     mode: Mode,
     request: FastifyRequest<{ Body: unknown }>,
     reply: FastifyReply,
-  ): Promise<OprfV2Response> => {
+  ): Promise<OprfV2Response | undefined> => {
     const startedAt = Date.now()
     const log = request.log.child({ route: `oprf/v2/${mode}` })
     const devMode = (request.query as any)?.devmode === "true"
@@ -87,7 +86,7 @@ export async function oprfV2Routes(fastify: FastifyInstance, opts: OprfV2RouteOp
         .map((issue) => `${issue.path.join(".") || "body"}: ${issue.message}`)
         .join("; ")
       log.warn({ event: "bad_request", error }, "oprf v2 request failed validation")
-      return reply.status(400).send({ verified: false, error })
+      return reply.status(400).send({ error })
     }
     const body = parsed.data
 
@@ -119,18 +118,18 @@ export async function oprfV2Routes(fastify: FastifyInstance, opts: OprfV2RouteOp
           { event: "rejected", mode, status: verdict.status, error: verdict.error, durationMs: Date.now() - startedAt },
           "oprf v2 request rejected",
         )
-        return reply.status(verdict.status).send({ verified: false, error: verdict.error })
+        return reply.status(verdict.status).send({ error: verdict.error })
       }
       log.info({ event: "verified", mode, durationMs: Date.now() - startedAt }, "oprf v2 request verified")
-      return reply.send({ verified: true })
+      return reply.status(204).send()
     } catch (err) {
       log.error({ err, event: "error", durationMs: Date.now() - startedAt }, "oprf v2 request threw")
-      return reply.status(500).send({ verified: false, error: "Internal verification error" })
+      return reply.status(500).send({ error: "Internal verification error" })
     }
   }
 
   for (const mode of MODES) {
-    fastify.post<{ Body: unknown; Reply: OprfV2Response }>(`/oprf/v2/${mode}`, (request, reply) =>
+    fastify.post<{ Body: unknown; Reply: OprfV2Response | undefined }>(`/oprf/v2/${mode}`, (request, reply) =>
       handle(mode, request, reply),
     )
   }

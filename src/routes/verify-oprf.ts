@@ -15,8 +15,7 @@ interface VerifyOprfRequest {
 }
 
 interface VerifyOprfResponse {
-  verified: boolean
-  error?: string
+  error: string
 }
 
 // The base proofs differ by credential: three for a chip read, one for an attested ID or Aadhaar
@@ -31,7 +30,7 @@ export type VerifyOprfOptions = {
 
 export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprfOptions) {
 
-  const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }> = async (
+  const handler: RouteHandler<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse | void }> = async (
     request,
     reply,
   ) => {
@@ -50,7 +49,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
     if (!blinded_unique_identifier || !proofs || !Array.isArray(proofs)) {
       log.warn({ event: "bad_request", reason: "missing_fields" }, "Missing required fields")
       return reply.status(400).send({
-        verified: false,
         error: "Missing required fields: blinded_unique_identifier, proofs",
       })
     }
@@ -61,7 +59,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
         "Unexpected number of subproofs",
       )
       return reply.status(400).send({
-        verified: false,
         error: `Expected at least ${MIN_PROOF_COUNT} subproofs (base + facematch + oprf_auth), got ${proofs.length}`,
       })
     }
@@ -76,7 +73,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
       if (!facematchProof?.proof) {
         log.warn({ event: "missing_proof", proof: "facematch" }, "Missing required facematch proof")
         return reply.status(400).send({
-          verified: false,
           error: "Missing required facematch proof",
         })
       }
@@ -84,7 +80,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
       if (!oprfAuthProof?.proof) {
         log.warn({ event: "missing_proof", proof: "oprf_auth" }, "Missing required oprf_auth proof")
         return reply.status(400).send({
-          verified: false,
           error: "Missing required oprf_auth proof",
         })
       }
@@ -102,7 +97,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
           "blinded_unique_identifier does not match oprf_auth proof output",
         )
         return reply.status(400).send({
-          verified: false,
           error: "blinded_unique_identifier does not match oprf_auth proof output",
         })
       }
@@ -119,7 +113,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
           "oprf_auth comm_in does not match facematch comm_in",
         )
         return reply.status(400).send({
-          verified: false,
           error: "oprf_auth comm_in does not match facematch comm_in",
         })
       }
@@ -148,7 +141,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
           "SDK reported proof verification failed",
         )
         return reply.status(400).send({
-          verified: false,
           error: `Proof verification failed: ${JSON.stringify(queryResultErrors ?? {})}`,
         })
       }
@@ -156,7 +148,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
       if (oprfAuthProof.version !== facematchProof.version) {
         log.warn({ event: "mismatch", check: "version" }, "oprf_auth circuit version differs")
         return reply.status(400).send({
-          verified: false,
           error: "oprf_auth proof must be of the same circuit version as the other proofs",
         })
       }
@@ -170,7 +161,6 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
           "oprf_auth proof verification failed",
         )
         return reply.status(400).send({
-          verified: false,
           error: "Proof verification failed: oprf_auth proof is not valid",
         })
       }
@@ -179,21 +169,20 @@ export async function verifyOprfRoute(fastify: FastifyInstance, opts: VerifyOprf
         { event: "verified", durationMs: Date.now() - startedAt },
         "verify-oprf-auth succeeded",
       )
-      return reply.send({ verified: true })
+      return reply.status(204).send()
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown verification error"
       if (err instanceof ServiceUnavailableError) {
         log.error({ err, event: "unavailable", durationMs: Date.now() - startedAt }, message)
-        return reply.status(503).send({ verified: false, error: message })
+        return reply.status(503).send({ error: message })
       }
       log.error({ err, event: "error", durationMs: Date.now() - startedAt }, "Proof verification threw")
       return reply.status(400).send({
-        verified: false,
         error: message,
       })
     }
   }
 
-  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/verify-oprf-auth", handler)
-  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse }>("/oprf/verify", handler)
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse | void }>("/verify-oprf-auth", handler)
+  fastify.post<{ Body: VerifyOprfRequest; Reply: VerifyOprfResponse | void }>("/oprf/verify", handler)
 }

@@ -39,7 +39,6 @@ describe("POST /oprf/verify", () => {
     })
     assert.equal(res.statusCode, 400)
     const body = res.json()
-    assert.equal(body.verified, false)
     assert.match(body.error, /Missing required fields/)
   })
 
@@ -53,8 +52,6 @@ describe("POST /oprf/verify", () => {
       },
     })
     assert.equal(res.statusCode, 400)
-    const body = res.json()
-    assert.equal(body.verified, false)
   })
 
   it("should return 400 when proof count is wrong", async () => {
@@ -68,7 +65,6 @@ describe("POST /oprf/verify", () => {
     })
     assert.equal(res.statusCode, 400)
     const body = res.json()
-    assert.equal(body.verified, false)
     assert.match(body.error, /Expected at least 3 subproofs/)
   })
 
@@ -91,7 +87,6 @@ describe("POST /oprf/verify", () => {
 
     assert.equal(res.statusCode, 400)
     const body = res.json()
-    assert.equal(body.verified, false)
     assert.match(body.error, /Missing required/)
   })
 
@@ -109,7 +104,6 @@ describe("POST /oprf/verify", () => {
 
     assert.equal(res.statusCode, 400)
     const body = res.json()
-    assert.equal(body.verified, false)
     assert.match(body.error, /blinded_unique_identifier does not match/)
   })
 
@@ -149,7 +143,6 @@ describe("POST /oprf/verify", () => {
 
     assert.equal(res.statusCode, 400)
     const body = res.json()
-    assert.equal(body.verified, false)
     assert.match(body.error, /oprf_auth comm_in does not match facematch comm_in/)
   })
 
@@ -171,7 +164,7 @@ describe("POST /oprf/verify", () => {
   })
 
 
-  it("should return verified: true with valid proofs and matching blinded identifier", async () => {
+  it("should return 204 with valid proofs and matching blinded identifier", async () => {
     // Run the clock at the moment the proofs were made, so the certificate root is looked up
     // as it was then rather than now
     const facematch = fixture.proofs.find((p: { name?: string }) => p.name?.startsWith("facematch"))
@@ -188,9 +181,7 @@ describe("POST /oprf/verify", () => {
         },
       })
 
-      const body = res.json()
-      assert.equal(body.verified, true, `Expected verified: true, got error: ${body.error}`)
-      assert.equal(res.statusCode, 200)
+      assert.equal(res.statusCode, 204, res.body)
     } finally {
       mock.timers.reset()
     }

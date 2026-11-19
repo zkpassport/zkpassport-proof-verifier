@@ -16,7 +16,8 @@ API service that verifies ZKPassport proofs server-side, so that services which 
   `{ verified: false, error }` means the check could not run (for example the registry or an
   RPC was unreachable) and is not a verdict on the proof.
 - `POST /verify-oprf-auth` (alias `POST /oprf/verify`) — verifies the 5-proof OPRF v1 auth
-  bundle for the OPRF nodes. Body: `{ blinded_unique_identifier, proofs }`.
+  bundle for the OPRF nodes. Body: `{ blinded_unique_identifier, proofs }`. Returns 204 on
+  success, 400 `{ error }` when the bundle is rejected, or 503 when the check could not run.
 - `POST /oprf/v2/{identify,register,query,rotate}` - verifies the proof bundle of one OPRF v2
   step for the OPRF nodes. Add `?devmode=true` for dev mode. Body:
   `{ proofs, blinded_query?, I?, commitment? }`, where `blinded_query` is `"0x<x><y>"` (32 bytes
@@ -34,8 +35,8 @@ API service that verifies ZKPassport proofs server-side, so that services which 
   commitment P, that every other proof opens the same P, and every proof against the circuit
   registry (each under its own version). `oprf_auth` must output `blinded_query`;
   `oprf_registration` must match `I` and `commitment` and be evaluated under the pinned
-  registration key; `facematch` gets the v1 checks. Returns `{ verified: true }`, 400
-  `{ verified: false, error }` when the bundle is rejected, or 503 when the check could not run.
+  registration key; `facematch` gets the v1 checks. Returns 204 on success, 400 `{ error }`
+  when the bundle is rejected, or 503 when the check could not run.
 - `GET /health` — liveness.
 
 ## Configuration
